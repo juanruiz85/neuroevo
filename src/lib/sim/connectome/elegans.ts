@@ -120,6 +120,11 @@ interface ElegansGraph {
   gapB: Uint32Array
   gapW: Float32Array
   sensoryMap: { ch: number; idx: number; gain: number; sign: number }[]
+  // Habituación (Rankin 1990): aristas que salen del circuito del tap
+  // (ALM/AVM/PLM, mecano) y de ASH (fotofobia) — deprimibles por uso.
+  habMask: Uint8Array
+  habIdx: Int32Array
+  nHabit: number
   pool: {
     forward: number[]
     backward: number[]
@@ -175,6 +180,20 @@ function buildGraph(): ElegansGraph {
     gapA[k] = DATA.gap.p[k * 2]
     gapB[k] = DATA.gap.p[k * 2 + 1]
     gapW[k] = Math.min(0.18, 0.04 * Math.log2(1 + DATA.gap.w[k]))
+  }
+
+  // Habituación: marcas sobre las aristas del circuito del tap
+  // (ALM/AVM/PLM → AVA/PVC, Wicks & Rankin 1997) y de ASH (luz/noci).
+  const HAB_SOURCES = new Set(['ALML', 'ALMR', 'AVM', 'PLML', 'PLMR', 'ASHL', 'ASHR'])
+  const habMask = new Uint8Array(E)
+  const habIdx = new Int32Array(E).fill(-1)
+  let nHabit = 0
+  for (let i = 0; i < n; i++) {
+    if (!HAB_SOURCES.has(ELEGANS_NAMES[i])) continue
+    for (let e = srcOff[i]; e < srcOff[i + 1]; e++) {
+      habMask[e] = 1
+      habIdx[e] = nHabit++
+    }
   }
 
   // Inyección sensorial: canal del mundo → (neurona, ganancia, signo).
@@ -268,6 +287,9 @@ function buildGraph(): ElegansGraph {
     gapA,
     gapB,
     gapW,
+    habMask,
+    habIdx,
+    nHabit,
     sensoryMap,
     pool: {
       forward: pool([
@@ -366,6 +388,11 @@ function randomGenome(rng: Rng): Float32Array {
 
 const V_RESET = 0.12
 const SMOOTH = 0.28 // suavizado exponencial de los pools motores
+// Habituación al tap (Rankin 1990): depresión por uso de las sinapsis que
+// salen del circuito mecano (ALM/AVM/PLM) y de ASH (fotofobia), con
+// recuperación espontánea en ~1 min de simulación (como el animal).
+const HAB_RATE = 0.0075
+const HAB_TAU_TICKS = 60 * 30 // τ = 60 s a 30 ticks/s
 
 export class ElegansBrain implements IBrainAdapter {
   readonly kind: BrainKind = 'elegans'
@@ -377,6 +404,10 @@ export class ElegansBrain implements IBrainAdapter {
   private readonly V: Float32Array
   private readonly spike: Uint8Array
   private readonly refr: Int8Array
+  /** Escalas de habituación por arista deprimible (por individuo). */
+  private readonly habScale: Float32Array
+  /** Neuronas silenciadas (knockout experimental): V≡0. */
+  private silenced: Set<number> | null = null
   private fwdRate = 0
   private bwdRate = 0
   private dorRate = 0
@@ -390,6 +421,12 @@ export class ElegansBrain implements IBrainAdapter {
     this.V = new Float32Array(g.n)
     this.spike = new Uint8Array(g.n)
     this.refr = new Int8Array(g.n)
+    this.habScale = new Float32Array(g.nHabit).fill(1)
+  }
+
+  /** Knockout experimental: silencia neuronas por índice global. */
+  setSilenced(ids: Set<number> | null): void {
+    this.silenced = ids
   }
 
   forward(
@@ -408,6 +445,36 @@ export class ElegansBrain implements IBrainAdapter {
       V[i] *= leak
       if (refr[i] > 0) refr[i]--
       spike[i] = 0
+      if (this.silenced?.has(i)) V[i] = 0 // knockout: ablación virtual
+    }
+
+    // 1b) Recuperación espontánea de la habituación (τ = 60 s).
+    if (g.nHabit > 0) {
+      const rec = 1 / HAB_TAU_TICKS
+      for (let k = 0; k < this.habScale.length; k++) {
+        this.habScale[k] += (1 - this.habScale[k]) * rec
+      }
+    }
+
+    // 1c) Depresión por uso: un tap/luz fuerte deprime las sinapsis que
+    //     salen del circuito mecano/fótico (Rankin 1990, por sinapsis).
+    const tapF = inputs[CH.TOUCH_FRONT] ?? 0
+    const tapB = inputs[CH.TOUCH_BACK] ?? 0
+    const lux = inputs[CH.LIGHT] ?? 0
+    if (tapF > 0.55 || tapB > 0.55 || lux > 0.55) {
+      const amp = Math.max(tapF, tapB, lux)
+      const d = HAB_RATE * Math.max(0, (amp - 0.55) / 0.45)
+      if (d > 0) {
+        for (let i = 0; i < g.n; i++) {
+          const nm = ELEGANS_NAMES[i]
+          if (
+            nm === 'ALML' || nm === 'ALMR' || nm === 'AVM' ||
+            nm === 'PLML' || nm === 'PLMR' || nm === 'ASHL' || nm === 'ASHR'
+          ) {
+            this.depress(i, d)
+          }
+        }
+      }
     }
 
     // 2) Escalas de transmisión (neuromodulación evolucionable).
@@ -416,6 +483,7 @@ export class ElegansBrain implements IBrainAdapter {
     // 3) Inyección sensorial: el entorno carga directamente las neuronas
     //    sensoriales del conectoma (AFD ← temperatura, ASE ← comida, ...).
     for (const s of g.sensoryMap) {
+      if (this.silenced?.has(s.idx)) continue // sensor ablacionado
       let drive = inputs[s.ch] ?? 0
       if (s.ch === 0) drive = w[G_TONIC] // sesgo → impulso tónico del genoma
       else if (s.ch === 1) drive = 1 - drive // hambre, no saciedad
@@ -433,10 +501,12 @@ export class ElegansBrain implements IBrainAdapter {
       spiked++
       V[i] = V_RESET
       refr[i] = refractory
-      // Entrega a los postsinápticos (voltage < 1 = frío: señales débiles).
+      // Entrega a los postsinápticos (voltage < 1 = frío: señales débiles)
+      // con la escala de habituación si la arista está deprimida.
       for (let e = g.srcOff[i]; e < g.srcOff[i + 1]; e++) {
         const j = g.dst[e]
-        V[j] += g.w[e] * txScale[g.txIdx[i]] * voltage
+        const hs = g.habMask[e] ? this.habScale[g.habIdx[e]] : 1
+        V[j] += g.w[e] * hs * txScale[g.txIdx[i]] * voltage
       }
     }
 
@@ -511,6 +581,19 @@ export class ElegansBrain implements IBrainAdapter {
       }
     }
   }
+
+  private depress(neuronIdx: number, delta: number): void {
+    const g = getGraph()
+    for (let e = g.srcOff[neuronIdx]; e < g.srcOff[neuronIdx + 1]; e++) {
+      const h = g.habIdx[e]
+      if (h >= 0) this.habScale[h] = Math.max(0.06, this.habScale[h] - delta)
+    }
+  }
+}
+
+/** Índices de neuronas por nombre exacto (knockouts del Laboratorio). */
+export function getElegansIndicesByNames(names: string[]): number[] {
+  return names.map((n) => idxOf(n)).filter((i) => i >= 0)
 }
 
 function meanClass(g: ElegansGraph, V: Float32Array, cls: 0 | 1 | 2): number {

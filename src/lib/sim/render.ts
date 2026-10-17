@@ -3,7 +3,7 @@
 // lluvia y resaltado de la criatura seleccionada. Funciones puras sobre Canvas.
 
 import type { Creature } from './creature'
-import type { World, Food, WormEgg } from './world'
+import type { World, Food, Egg } from './world'
 import { SPECIES_CONFIG, WORM_LIFE, WORM_STAGE_LABEL, WORM_STAGE_SCALE, clamp } from './types'
 
 export interface Viewport {
@@ -296,24 +296,26 @@ function drawWorm(ctx: CanvasRenderingContext2D, c: Creature, now: number): void
   void now
 }
 
-// Huevo: óvalo crema; cerca de eclosionar (embrión maduro) se retuerce.
-function drawEgg(ctx: CanvasRenderingContext2D, e: WormEgg, now: number): void {
-  const frac = clamp(e.embryoT / WORM_LIFE.eggEmbryo, 0, 1)
+// Huevo: gusano → óvalo crema; mosca → alargado blanco-perla (los huevos
+// reales de Drosophila). Cerca de eclosionar, el embrión se retuerce.
+function drawEgg(ctx: CanvasRenderingContext2D, e: Egg, now: number): void {
+  const frac = clamp(e.embryoT / e.embryoTotal, 0, 1)
   const twitch =
     frac < 0.3 ? Math.sin(now / 110 + e.id * 2.7) * (0.3 - frac) * 3.5 : 0
+  const isFly = e.species === 'fly'
   ctx.save()
   ctx.translate(e.x, e.y + twitch)
   ctx.rotate(e.id % 7 * 0.9)
-  ctx.fillStyle = '#fde68a'
-  ctx.strokeStyle = 'rgba(120, 85, 20, 0.55)'
+  ctx.fillStyle = isFly ? '#f8fafc' : '#fde68a'
+  ctx.strokeStyle = isFly ? 'rgba(100, 116, 139, 0.55)' : 'rgba(120, 85, 20, 0.55)'
   ctx.lineWidth = 0.7
   ctx.beginPath()
-  ctx.ellipse(0, 0, 3.1, 2.1, 0, 0, Math.PI * 2)
+  ctx.ellipse(0, 0, isFly ? 3.6 : 3.1, isFly ? 1.5 : 2.1, 0, 0, Math.PI * 2)
   ctx.fill()
   ctx.stroke()
   // Embrión visible al final de la incubación
   if (frac < 0.35) {
-    ctx.fillStyle = 'rgba(83, 109, 61, 0.85)'
+    ctx.fillStyle = isFly ? 'rgba(217, 119, 6, 0.9)' : 'rgba(83, 109, 61, 0.85)'
     ctx.beginPath()
     ctx.arc(0, 0, 1.1, 0, Math.PI * 2)
     ctx.fill()

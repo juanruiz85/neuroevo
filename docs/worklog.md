@@ -696,3 +696,56 @@ Stage Summary:
   por neurona (olfactory, gustatory-external/pharyngeal, visual, noci,
   thermo-cold/warm, mechano-Ch, proprio, respiratory, gut) y 346 DNs
   (salidas motoras). Informe completo del agente con URLs y citas.
+
+---
+Task ID: 14-b
+Agent: main (Z.ai Code)
+Task: Cerebro Drosophila real: pipeline CSV→JSON + DrosophilaBrain LIF +
+18 canales sensoriales + calibración headless iterativa.
+
+Work Log:
+- NUEVO scripts/build_drosophila.py (reproducible): CSVs fuente en
+  data/source/larva_winding2023/ → drosophila_connectome.json (684 KB).
+  2.956 neuronas, 41.977 aristas (73,0% de las 352.611 sinapsis; umbral ≥3
+  salvo TODAS las salidas de sensores de primer orden), 462 sensores con
+  11 modalidades reales, 346 DNs, tx por tipo celular (ACh 2.364 / GABA
+  218 / Glu 346 / DA 28), 8 aisladas, 96,6% alcanzable desde sensores.
+  Validación cruzada del informe 14-a (total sinapsis idéntico al S1).
+- NUEVO src/lib/sim/connectome/drosophila.ts: DrosophilaBrain (LIF sobre
+  CSR compartido; sin gaps —la fuente no los tiene—), tick-stepping 1:2
+  (integración barata + disparo completo con leak²), knockouts
+  setSilenced(), habituación por depresión homosináptica POR SINAPSIS en
+  aristas mecano/visuales con τ=60 s, pools por clase real (DN-VNC→avance,
+  asimetría L/R de DNs→giro, DN-SEZ→puesta), genoma de 27 genes con sesgo
+  lateral innato (klinotaxis, Luo 2010), getDrosophilaCircuit() (65 nodos,
+  367 aristas reales para la vista) y getDrosophilaIndicesByGroup().
+- NUEVO fly-sensors.ts: 18 canales con metadatos (17 comunes + faríngeo).
+  sensors.ts: NN_CHANNELS 17→18. adapter.ts: kind 'drosophila' +
+  FACTORIES.fly→DrosophilaBrain (ANN queda como control sembrable) +
+  setSilenced?() en el contrato. elegans.ts: knockouts + habituación
+  Rankin 1990 (ALM/AVM/PLM/ASH) + getElegansIndicesByNames().
+- creature.ts: senseFly() (tacto, propiocepción de vuelo, klinotaxis,
+  faríngeo al ingerir), puesta de mosca SOLO por DN-SEZ (cooldown 2 s,
+  umbral energia reproMin−8), flyDevRate (Q10 base 25 °C).
+- world.ts: WormEgg→Egg {species} (mosca: blanco-perla 3,6×1,5, embrión
+  18 s, vitelo 40, nace adulta —pupa no simulada, documentado—);
+  layEgg() para ambas especies; spawnChild solo ANN; seedFromRecord por
+  kind (drosophila/ann/elegans).
+- CALIBRACIÓN ITERATIVA (3 rondas, /home/z/calib):
+  1ª: reposo OK (1,65%) pero giro sin asimetría L/R y 11,5 ms/tick.
+  2ª: tick-stepping + typed arrays → 1,62 ms/tick con 50 cerebros;
+  añadida klinotaxis con sesgo genético; olfato→avance positivo (0,67).
+  PERO ecosistema: moscas extinguidas (0 en 120 s).
+  3ª: diagnóstico individual (mueren de hambre 0-2 comidas; oA[2]≈0,26
+  nunca cruza 0,55) → ganancia direccional ORN 1,6, asimetría ×6, umbral
+  eggRate 0,05, modulación faríngea DN-SEZ 0,42 (paralelo del HSN del
+  gusano), vitelo 40, cooldown 2 s.
+- BALANCE FINAL 15 min (27.000 ticks): moscas drosophila 12-18 VIVAS,
+  gusanos 62-75, 16 huevos de mosca por circuito neural, G28 en 15 min,
+  2,07 ms/tick media (p95 2,58; objetivo <8). lint 0 · tsc 0.
+
+Stage Summary:
+- Las dos especies del ecosistema usan ahora conectomas reales completos:
+  C. elegans (300) y D. melanogaster larvario (2.956). La mosca se
+  orienta (L/R + klinotaxis), come, pone huevos SOLO por su circuito y
+  evoluciona (G28/15 min) con presupuesto de CPU sobrado.

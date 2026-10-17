@@ -4,17 +4,16 @@
 // Define el contrato común que el simulador (creature/world/Canvas) consume,
 // de modo que la arquitectura neuronal de cada especie es intercambiable:
 //
-//   'ann'      → red 12→8→3 con pesos evolucionables (moscas hoy).
-//   'elegans'  → conectoma biológico real de C. elegans + LIF (gusanos).
-//   'drosophila' → (FASE 2, ver docs/FASE-2-DROSOPHILA.md) conectoma de la
-//                  mosca reducido offline con neuprint-python; implementará
-//                  esta misma interfaz y el Canvas no notará el cambio.
+//   'ann'        → red 12→8→3 con pesos evolucionables (control experimental).
+//   'elegans'    → conectoma biológico real de C. elegans + LIF (gusanos).
+//   'drosophila' → conectoma real del cerebro larvario de D. melanogaster
+//                  (Winding 2023, 2.956 neuronas) + LIF (moscas).
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type { Rng } from '../rng'
 import type { Species } from '../types'
 
-export type BrainKind = 'ann' | 'elegans'
+export type BrainKind = 'ann' | 'elegans' | 'drosophila'
 
 /**
  * Contrato único entre el motor de simulación y cualquier arquitectura
@@ -55,6 +54,13 @@ export interface IBrainAdapter {
    * los cerebros biológicos; la ANN devuelve undefined.
    */
   connectomeView?(): ConnectomeActivity
+
+  /**
+   * Opcional: knockout experimental — silencia un conjunto de neuronas
+   * (V≡0, sin disparo). Es la ablación virtual del Laboratorio; la ANN
+   * (control sin biología) no lo implementa.
+   */
+  setSilenced?(ids: Set<number> | null): void
 }
 
 /** Actividad de un conectoma biológico para visualizar en vivo. */
@@ -73,9 +79,13 @@ type BrainCtor = (genome?: Float32Array) => IBrainAdapter
 
 import { Brain } from '../nn'
 import { ElegansBrain } from './elegans'
+import { DrosophilaBrain } from './drosophila'
 
 const FACTORIES: Record<Species, BrainCtor> = {
-  fly: (genome) => (genome ? new Brain(genome) : new Brain()),
+  // La mosca usa el conectoma real de Drosophila (Fase 2). La ANN queda
+  // como control experimental sembrable desde el Museo/Laboratorio.
+  fly: (genome) =>
+    genome ? new DrosophilaBrain(genome) : new DrosophilaBrain(),
   worm: (genome) =>
     genome ? new ElegansBrain(genome) : new ElegansBrain(),
 }

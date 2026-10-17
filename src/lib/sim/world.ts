@@ -1,9 +1,10 @@
 // El mundo: criaturas, alimentos, clima, grilla espacial, evolución y estadísticas.
 
 import type { IBrainAdapter } from './connectome/adapter'
-import { Creature, wormDevRate, wormStageDuration } from './creature'
+import { Creature, flyDevRate, wormDevRate, wormStageDuration } from './creature'
 import { Brain } from './nn'
 import { ElegansBrain, ELEGANS_GENES } from './connectome/elegans'
+import { DrosophilaBrain, DROSOPHILA_GENES } from './connectome/drosophila'
 import { Rng } from './rng'
 import {
   DEFAULT_ENV,
@@ -58,29 +59,34 @@ export class Food {
 }
 
 /**
- * Huevo de C. elegans: depositado por el circuito HSN+VC de la madre,
- * incuba con la temperatura (Q10) y eclosiona como larva L1 con vitelo.
- * El cerebro ya está clonado y mutado (la meiosis ocurrió en la puesta).
+ * Huevo de C. elegans o Drosophila: depositado por el circuito neural
+ * de puesta de la madre (HSN+VC / DN-SEZ), incuba con la temperatura
+ * (Q10, óptimo distinto por especie) y eclosiona con el cerebro
+ * clonado+mutado (la meiosis ocurrió en la puesta).
  */
-export class WormEgg {
+export class Egg {
   static nextId = 1
   readonly id: number
+  readonly species: Species
   x: number
   y: number
-  /** Cerebro clonado+mutado de la madre (hermafrodita autofecundado). */
+  /** Cerebro clonado+mutado de la madre (autofecundación). */
   readonly brain: IBrainAdapter
   readonly generation: number
   readonly parentGen: number
   readonly maxSpeed: number
   readonly vision: number
-  /** Cuenta atrás de embriogénesis (s, a 20 °C). */
+  /** Cuenta atrás de embriogénesis (s, a la temperatura óptima). */
   embryoT: number
+  /** Duración total de la incubación (para el render del retorcido). */
+  readonly embryoTotal: number
   /** Edad total del huevo (para los no eclosionados). */
   age = 0
   hatched = false
   dead = false
 
   constructor(
+    species: Species,
     x: number,
     y: number,
     brain: IBrainAdapter,
@@ -89,7 +95,8 @@ export class WormEgg {
     maxSpeed: number,
     vision: number,
   ) {
-    this.id = WormEgg.nextId++
+    this.id = Egg.nextId++
+    this.species = species
     this.x = x
     this.y = y
     this.brain = brain
@@ -97,9 +104,15 @@ export class WormEgg {
     this.parentGen = parentGen
     this.maxSpeed = maxSpeed
     this.vision = vision
-    this.embryoT = WORM_LIFE.eggEmbryo
+    // Gusano: ~10 h reales a 20 °C. Mosca: ~24 h a 25 °C (escala 1 s ≈ 1 h).
+    this.embryoTotal =
+      species === 'worm' ? WORM_LIFE.eggEmbryo : FLY_EGG_EMBRYO
+    this.embryoT = this.embryoTotal
   }
 }
+
+/** Embriogénesis de Drosophila a 25 °C (≈ 24 h reales; escala del mundo). */
+export const FLY_EGG_EMBRYO = 18
 
 export class World {
   readonly width: number
@@ -109,8 +122,8 @@ export class World {
   ticks = 0
   readonly rng = new Rng()
   creatures: Creature[] = []
-  /** Huevos en incubación (depositados por el circuito HSN+VC real). */
-  eggs: WormEgg[] = []
+  /** Huevos en incubación (depositados por circuitos neurales reales). */
+  eggs: Egg[] = []
   foods: Food[] = []
   light = 0.5
   ambientTemp = 24
@@ -217,36 +230,62 @@ export class World {
       if (c.alive) c.tick(this, dt)
     }
 
-    // Huevos: la embriogénesis avanza con la temperatura (Q10) y el huevo
-    // eclosiona como L1 con su reserva de vitelo. Con el mundo saturado
-    // (popCap) el huevo espera; si envejece demasiado, se pierde.
-    const wormCap = SPECIES_CONFIG.worm.popCap
+    // Huevos: la embriogénesis avanza con la temperatura (Q10 propia de
+    // cada especie) y el huevo eclosiona con su cerebro listo. Con el
+    // mundo saturado (popCap) el huevo espera; si envejece, se pierde.
+    const caps: Record<Species, number> = {
+      fly: SPECIES_CONFIG.fly.popCap,
+      worm: SPECIES_CONFIG.worm.popCap,
+    }
     for (const e of this.eggs) {
       e.age += dt
       if (!e.hatched && e.embryoT > 0) {
-        e.embryoT -= dt * wormDevRate(this.ambientTemp)
+        const devRate =
+          e.species === 'worm'
+            ? wormDevRate(this.ambientTemp)
+            : flyDevRate(this.ambientTemp)
+        e.embryoT -= dt * devRate
       }
-      if (!e.hatched && e.embryoT <= 0 && this.counts.worm < wormCap) {
+      if (!e.hatched && e.embryoT <= 0 && this.counts[e.species] < caps[e.species]) {
         e.hatched = true
-        this.creatures.push(
-          new Creature({
-            species: 'worm',
-            x: clamp(e.x, 15, this.width - 15),
-            y: clamp(e.y, 15, this.height - 15),
-            brain: e.brain,
-            generation: e.generation,
-            parentGen: e.parentGen,
-            maxSpeed: e.maxSpeed,
-            vision: e.vision,
-            energy: WORM_LIFE.yolkEnergy,
-            stage: 'l1',
-          }),
-        )
-        this.counts.worm++
+        if (e.species === 'worm') {
+          // Eclosión como L1 con reserva de vitelo.
+          this.creatures.push(
+            new Creature({
+              species: 'worm',
+              x: clamp(e.x, 15, this.width - 15),
+              y: clamp(e.y, 15, this.height - 15),
+              brain: e.brain,
+              generation: e.generation,
+              parentGen: e.parentGen,
+              maxSpeed: e.maxSpeed,
+              vision: e.vision,
+              energy: WORM_LIFE.yolkEnergy,
+              stage: 'l1',
+            }),
+          )
+        } else {
+          // Mosca: nace adulta joven (no simulamos la pupa, documentado);
+          // vitelo rico del huevo real de Drosophila.
+          this.creatures.push(
+            new Creature({
+              species: 'fly',
+              x: clamp(e.x, 15, this.width - 15),
+              y: clamp(e.y, 15, this.height - 15),
+              brain: e.brain,
+              generation: e.generation,
+              parentGen: e.parentGen,
+              maxSpeed: e.maxSpeed,
+              vision: e.vision,
+              energy: 40,
+            }),
+          )
+        }
+        this.counts[e.species]++
         this.births++
         if (e.generation > this.maxGen) this.maxGen = e.generation
       }
-      if (e.age > 48) e.dead = true
+      if (e.age > (e.species === 'worm' ? 48 : 40)) e.dead = true
     }
     if (this.ticks % 15 === 0) {
       this.eggs = this.eggs.filter((e) => !e.dead && !e.hatched)
@@ -411,14 +450,15 @@ export class World {
   // ——— Reproducción y evolución ———
 
   /**
-   * Puesta de un huevo de C. elegans: la dispara ÚNICAMENTE el circuito
-   * neural real HSN+VC (salida "Reproducir"). El huevo sale por la vulva
-   * (segmento medio del cuerpo), ya contiene el cerebro clonado+mutado
-   * (autofecundación con esperma limitado) y eclosionará como L1.
+   * Puesta de un huevo (gusano o mosca): la dispara ÚNICAMENTE el circuito
+   * neural real de puesta (HSN+VC del gusano; DN-SEZ de la mosca). El
+   * huevo sale por la vulva (segmento medio del cuerpo del gusano) o tras
+   * el abdomen de la mosca, ya contiene el cerebro clonado+mutado
+   * (autofecundación) y eclosionará según su especie.
    */
   layEgg(parent: Creature): void {
-    const cfg = SPECIES_CONFIG.worm
-    if (this.counts.worm + this.eggs.length >= cfg.popCap) return
+    const cfg = SPECIES_CONFIG[parent.species]
+    if (this.counts[parent.species] + this.eggs.length >= cfg.popCap) return
     const rng = this.rng
     const brain = parent.brain.clone()
     brain.mutate(rng, 0.1, 0.42)
@@ -432,12 +472,16 @@ export class World {
       cfg.baseVision * 0.7,
       cfg.baseVision * 1.4,
     )
-    // La vulva real está a mitad del cuerpo: el huevo aparece detrás.
-    const vulva = parent.segs[3] ?? parent
+    // La vulva real del gusano está a mitad del cuerpo; la mosca pone
+    // con el abdomen.
+    const origin = parent.species === 'worm'
+      ? parent.segs[3] ?? parent
+      : { x: parent.x - Math.cos(parent.heading) * 6, y: parent.y - Math.sin(parent.heading) * 6 }
     this.eggs.push(
-      new WormEgg(
-        clamp(vulva.x + rng.gauss(4), 12, this.width - 12),
-        clamp(vulva.y + rng.gauss(4), 12, this.height - 12),
+      new Egg(
+        parent.species,
+        clamp(origin.x + rng.gauss(4), 12, this.width - 12),
+        clamp(origin.y + rng.gauss(4), 12, this.height - 12),
         brain,
         parent.generation + 1,
         parent.generation,
@@ -445,16 +489,20 @@ export class World {
         vision,
       ),
     )
-    parent.matureEggs--
+    if (parent.species === 'worm') {
+      // El gusano gestiona su útero (huevos maduros + esperma limitado).
+      parent.matureEggs--
+    }
     parent.eggsLaid++
     parent.children++
     parent.laidFlash = 1
   }
 
   spawnChild(parent: Creature): void {
-    // Solo las moscas (especie de control ANN) se reproducen por brotes
-    // directos; los gusanos ponen huevos a través de su circuito neural.
-    if (parent.species !== 'fly') return
+    // Solo las moscas ANN (especie de control) se reproducen por brotes
+    // directos; los gusanos y las moscas biológicas ponen huevos a través
+    // de su circuito neural.
+    if (parent.species !== 'fly' || parent.brain.kind !== 'ann') return
     const cfg = SPECIES_CONFIG[parent.species]
     if (this.counts[parent.species] >= cfg.popCap) return
     const rng = this.rng
@@ -719,18 +767,28 @@ export class World {
   seedFromRecord(rec: EliteRecord): number {
     const n = 8
     const cfg = SPECIES_CONFIG[rec.species]
-    // Reconstruye la arquitectura correcta: los gusanos nuevos usan el
-    // conectoma (genoma de 20 genes); los registros antiguos de gusanos
-    // (131 pesos ANN) se siembran tal cual eran: ANN clásica.
-    const isElegans =
-      rec.brain.kind === 'elegans' ||
-      (rec.species === 'worm' &&
-        (rec.brain.weights.length === ELEGANS_GENES ||
-          rec.brain.weights.length === 20))
+    // Reconstruye la arquitectura correcta por kind (los registros viejos
+    // de moscas eran ANN; los de gusanos viejos sin kind se detectan por
+    // longitud de genoma).
+    const makeBrain = (): IBrainAdapter => {
+      if (rec.brain.kind === 'drosophila' ||
+        (rec.species === 'fly' && rec.brain.weights.length === DROSOPHILA_GENES)) {
+        return new DrosophilaBrain(new Float32Array(rec.brain.weights))
+      }
+      if (rec.brain.kind === 'ann') return new Brain(new Float32Array(rec.brain.weights))
+      if (rec.species === 'worm') {
+        const isElegans =
+          rec.brain.weights.length === ELEGANS_GENES ||
+          rec.brain.weights.length === 20
+        return isElegans
+          ? new ElegansBrain(new Float32Array(rec.brain.weights))
+          : new Brain(new Float32Array(rec.brain.weights))
+      }
+      // Mosca sin kind (registro antiguo): ANN clásica de 131 pesos.
+      return new Brain(new Float32Array(rec.brain.weights))
+    }
     for (let i = 0; i < n; i++) {
-      const brain = isElegans
-        ? new ElegansBrain(new Float32Array(rec.brain.weights))
-        : new Brain(new Float32Array(rec.brain.weights))
+      const brain = makeBrain()
       brain.mutate(this.rng, 0.05, 0.2)
       this.creatures.push(
         new Creature({

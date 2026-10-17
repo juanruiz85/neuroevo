@@ -13,10 +13,14 @@
 //     HSN+VC dispara la salida "Reproducir". Los huevos son objetos del
 //     mundo que eclosionan como L1 (world.ts).
 //
-// MOSCAS: red evolutiva 12→8→3 (especie de control, sin cambios).
+// MOSCAS (Fase 2): conectoma real del cerebro larvario de Drosophila
+// (Winding 2023) con 18 canales sensoriales mapeados a grupos reales
+// (fly-sensors.ts); puesta de huevos por el circuito DN-SEZ; la ANN de
+// control se conserva para experimentos comparativos.
 
 import { createBrain, type IBrainAdapter } from './connectome/adapter'
 import { CH, NN_CHANNELS } from './connectome/sensors'
+import { DCH } from './connectome/fly-sensors'
 import {
   SPECIES_CONFIG,
   WORM_LIFE,
@@ -33,6 +37,11 @@ const POISON_MASK = 8
 /** Velocidad de desarrollo con la temperatura (Q10 ≈ 2, óptimo 20 °C). */
 export function wormDevRate(temp: number): number {
   return clamp(Math.pow(2, (temp - 20) / 10), 0.3, 2.6)
+}
+
+/** Desarrollo embrionario de Drosophila (Q10 ≈ 2, óptimo 25 °C). */
+export function flyDevRate(temp: number): number {
+  return clamp(Math.pow(2, (temp - 25) / 10), 0.3, 2.6)
 }
 
 /** Duración de una fase larvaria a 20 °C (s). */
@@ -109,6 +118,8 @@ export class Creature {
   touchB = 0
   /** Anillo dorado de puesta (render). */
   laidFlash = 0
+  /** Ráfaga de gusto faríngeo al ingerir (GNP de la mosca). */
+  gutFlash = 0
   private prevHeading = 0
   private proprioSm = 0
   private foodNearSm = 0
@@ -199,6 +210,10 @@ export class Creature {
 
     if (this.species === 'worm') {
       this.senseWorm(world, inp, food, dt)
+    } else if (this.brain.kind !== 'ann') {
+      // Los 6 sentidos exclusivos de la mosca biológica (la ANN de control
+      // solo lee los 12 primeros canales del contrato común).
+      this.senseFly(world, inp, food, dt)
     }
 
     // — Piensa —
@@ -278,11 +293,31 @@ export class Creature {
     this.age += dt
 
     // — Come (o se envenena) — La dauer tiene la boca sellada: no come.
+    const eatenBefore = this.foodEaten
     if (!dauer) world.eatFoodAt(this)
+    // Ráfaga de gusto faríngeo: los GRNs faríngeos responden al ingerir.
+    if (this.foodEaten > eatenBefore) this.gutFlash = 1
+    this.gutFlash = Math.max(0, this.gutFlash - dt * 2.2)
 
     // — Ciclo de vida y reproducción —
     if (this.species === 'worm') {
       this.tickWormLife(world, food, dt)
+    } else if (this.brain.kind === 'drosophila') {
+      // Mosca biológica: puesta de huevos SOLO cuando el pool DN-SEZ
+      // (descendentes viscerales/oviposición) dispara la salida motora.
+      this.layCd -= dt
+      if (
+        this.energy > cfg.reproMinEnergy - 8 &&
+        this.brain.oA[2] > 0.55 &&
+        this.layCd <= 0
+      ) {
+        world.layEgg(this)
+        this.energy -= cfg.reproCost
+        this.children++
+        this.layCd = 2
+        this.laidFlash = 1
+      }
+      if (this.age > cfg.maxAge) this.alive = false
     } else {
       const wantsChild =
         this.brain.oA[2] > 0.55 || this.energy > cfg.reproMinEnergy + 26
@@ -343,6 +378,56 @@ export class Creature {
 
     // Feromona de conglomerado (ascarósidos): densidad local de gusanos.
     inp[CH.PHEROMONE] = world.wormPheromone(this.x, this.y)
+  }
+
+  /**
+   * Sentidos propios de la mosca biológica (paralelo a senseWorm): choques
+   * contra paredes/cuerpos (MEC), propiocepción de vuelo con signo (PRO),
+   * klinotaxis olfativa (ORN) y la ráfaga faríngea al ingerir (GNP).
+   */
+  private senseFly(
+    world: World,
+    inp: number[],
+    food: { x: number; y: number } | null,
+    dt: number,
+  ): void {
+    const decay = Math.exp(-dt * 6)
+
+    // Tacto: cabeza contra bordes u otros cuerpos (mecanosensores MEC).
+    const nx = this.x + Math.cos(this.heading) * 9
+    const ny = this.y + Math.sin(this.heading) * 9
+    const tx = this.x - Math.cos(this.heading) * 9
+    const ty = this.y - Math.sin(this.heading) * 9
+    const hitN =
+      nx < 13 || nx > world.width - 13 || ny < 13 || ny > world.height - 13 ||
+      world.countNeighbors(nx, ny, 9, 'any') > 0
+    const hitB =
+      tx < 13 || tx > world.width - 13 || ty < 13 || ty > world.height - 13 ||
+      world.countNeighbors(tx, ty, 9, 'any') > 0
+    this.touchF = hitN ? 1 : this.touchF * decay
+    this.touchB = hitB ? 1 : this.touchB * decay
+    inp[DCH.TOUCH_FRONT] = this.touchF
+    inp[DCH.TOUCH_BACK] = this.touchB
+
+    // Propiocepción de vuelo: firma con signo del giro + carga alar
+    // (fase de aleteo ~ velocidad). Las sensillas campaniformes del adulto.
+    const turn = (this.heading - this.prevHeading) / Math.max(dt, 1e-4)
+    this.prevHeading = this.heading
+    this.proprioSm += (turn - this.proprioSm) * Math.min(1, dt * 8)
+    inp[DCH.PROPRIO] = clamp(this.proprioSm / 3.5, -1, 1)
+
+    // Klinotaxis olfativa: las ORNs se adaptan → disparan al CAMBIO.
+    const near = food ? 1 - Math.min(1, Math.hypot(food.x - this.x, food.y - this.y) / Math.max(1, this.effVision)) : 0
+    this.foodNearSm += (near - this.foodNearSm) * Math.min(1, dt * 3)
+    const d = (this.foodNearSm - this.foodPrevSm) / Math.max(dt, 1e-4)
+    this.foodPrevSm = this.foodNearSm
+    this.foodDeltaSm += (clamp(d * 0.9, -1, 1) - this.foodDeltaSm) * Math.min(1, dt * 10)
+    inp[DCH.FOOD_DELTA] = this.foodDeltaSm
+
+    // Feromona: sin receptor anotado en el dataset (canal a 0, documentado).
+    inp[DCH.PHEROMONE] = 0
+    // Gusto faríngeo: la ráfaga al ingerir (actualizada en tick()).
+    inp[DCH.FPHARYNX] = this.gutFlash
   }
 
   /** Fases larvarias, dauer, senescencia y puesta de huevos. */

@@ -211,7 +211,10 @@ export const SENSOR_CHANNELS: readonly SensorChannel[] = [
   },
 ]
 
-export const NN_CHANNELS = SENSOR_CHANNELS.length
+export const NN_CHANNELS = SENSOR_CHANNELS.length + 1
+// 17 canales del gusano + 1 exclusivo de la mosca (gusto faríngeo, índice 17
+// en fly-sensors.ts): un único array de entradas compartido por todas las
+// arquitecturas cerebrales (la ANN lee solo los 12 primeros).
 
 export const CHANNEL_NEURONS: readonly string[][] = SENSOR_CHANNELS.map(
   (ch) => ch.neurons.split(/\s*\+\s*|\s*\/\s*|\s*,\s*/).filter(Boolean),
