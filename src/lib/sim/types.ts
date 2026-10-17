@@ -5,6 +5,76 @@ import type { BrainKind } from './connectome/adapter'
 export type Species = 'fly' | 'worm'
 export type FoodKind = 'fruit' | 'detritus' | 'sugar' | 'poison'
 
+/**
+ * Fases del ciclo de vida de C. elegans (los huevos son objetos del mundo,
+ * no criaturas; las moscas mantienen su modelo simple de control).
+ */
+export type WormStage = 'l1' | 'l2' | 'l3' | 'l4' | 'adult' | 'dauer'
+
+export const WORM_STAGE_LABEL: Record<WormStage, string> = {
+  l1: 'L1',
+  l2: 'L2',
+  l3: 'L3',
+  l4: 'L4',
+  adult: 'Adulto',
+  dauer: 'Dauer',
+}
+
+/**
+ * Ciclo de vida biológico del gusano (escala 1 s ≈ 1 h real a 20 °C).
+ * Duraciones reales del nemátodo; la senescencia adulta se comprime ×1.4
+ * para que la vida completa sea observable en la simulación.
+ * La velocidad de desarrollo sigue una Q10≈2 con la temperatura.
+ */
+export const WORM_LIFE = {
+  /** Incubación del huevo tras la puesta (real ≈ 10 h a 20 °C). */
+  eggEmbryo: 12,
+  /** Duración de cada fase larvaria a 20 °C (real: L1 12 h, L2-L4 ~10 h). */
+  stages: { l1: 12, l2: 10, l3: 10, l4: 10 } as Record<Exclude<WormStage, 'adult' | 'dauer'>, number>,
+  /** Senescencia adulta mediana (real ≈ 432 h; comprimida ×1.4). */
+  adultMedian: 300,
+  /** Coste energético de madurar un huevo interno. */
+  eggEnergy: 16,
+  /** Reserva de vitelo del L1 recién eclosionado. */
+  yolkEnergy: 24,
+  /** Esperma limitado del hermafrodita (real ~300; capado por equilibrio). */
+  spermCap: 140,
+  /** Huevos maduros máximos en el útero (real ~10-15). */
+  matureCap: 8,
+  /** Energía mínima para madurar huevos. */
+  eggMinEnergy: 55,
+  /** Segundos entre huevos maduros sin feromona (real: ~1 h/óvulo). */
+  eggInterval: 11,
+  /** Separación entre puestas de una ráfaga (circuito HSN/VC). */
+  layCooldown: 1.4,
+  /** Madurez reproductiva tras la muda a adulto (real ≈ 5 h). */
+  adultMatureDelay: 6,
+  /** Hambre sostenida (s) antes de entrar en dauer (fase L2/L3). */
+  dauerStarveT: 5,
+  /** Duración máxima de la fase dauer (reservas lipídicas). */
+  dauerMax: 320,
+} as const
+
+/** Escala metabólica por fase (las larvas gastan menos que el adulto). */
+export const WORM_STAGE_DRAIN: Record<WormStage, number> = {
+  l1: 0.35,
+  l2: 0.5,
+  l3: 0.65,
+  l4: 0.85,
+  adult: 1,
+  dauer: 0.05,
+}
+
+/** Escala visual de las larvas (el gusano crece con cada muda). */
+export const WORM_STAGE_SCALE: Record<WormStage, number> = {
+  l1: 0.45,
+  l2: 0.6,
+  l3: 0.72,
+  l4: 0.86,
+  adult: 1,
+  dauer: 0.55,
+}
+
 // Máscaras de dieta para las consultas espaciales.
 export const MASK = { fruit: 1, detritus: 2, sugar: 4, poison: 8 } as const
 
@@ -101,6 +171,7 @@ export interface StatPoint {
   t: number
   flies: number
   worms: number
+  eggs: number
   fruit: number
   detritus: number
   sugar: number
@@ -130,6 +201,20 @@ export interface CreatureView {
   foodEaten: number
   children: number
   fitness: number
+  /** Fase del ciclo de vida (solo gusanos; las moscas son siempre adultas). */
+  stage?: WormStage
+  /** Progreso dentro de la fase actual [0, 1]. */
+  stagePct?: number
+  /** Edad como adulto en s (senescencia). */
+  adultAge?: number
+  /** Huevos puestos en el mundo (solo gusanos). */
+  eggsLaid?: number
+  /** Huevos maduros listos en el útero. */
+  matureEggs?: number
+  /** Esperma restante del hermafrodita. */
+  spermLeft?: number
+  /** Feromona de conglomerado percibida [0, 1]. */
+  pheromone?: number
   x: number
   y: number
   inputs: number[]
@@ -152,6 +237,7 @@ export interface WorldView {
   counts: {
     flies: number
     worms: number
+    eggs: number
     fruit: number
     detritus: number
     sugar: number

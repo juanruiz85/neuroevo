@@ -200,18 +200,18 @@ igual que los de la mosca.
 | Velocidad base | 145 px/s | 55 px/s |
 | Visión base | 160 px | 125 px |
 | Giro máximo | 4.0 rad/s | 2.2 rad/s |
-| Gasto base | 1.05 E/s | 0.55 E/s |
-| Gasto por moverse | 0.95 E/s | 0.35 E/s |
-| Vida máxima | 110 s | 180 s |
+| Gasto base | 1.05 E/s | 0.55 E/s (× escala de fase) |
+| Gasto por moverse | 0.95 E/s | 0.35 E/s (× escala de fase) |
+| Vida máxima | 110 s | ciclo completo (ver §4bis) |
 | Temperatura óptima | 26 °C | 20 °C |
 | Dieta | fruta + azúcar | detritos + azúcar |
-| Tope poblacional | 220 | 220 |
+| Tope poblacional | 220 | 220 (gusanos + huevos) |
 
-La **visión efectiva** depende del clima:
+La **visión efectiva** depende del clima (y de la fase en gusanos):
 
 ```
 mosca:  visión × (0.25 + 0.75·luz) × (1 − 0.35·lluvia)   ← ciega de noche
-gusano: visión × (0.9 + humedad·0.3)                     ← la humedad afina el olfato
+gusano: visión × (0.9 + humedad·0.3) × (0.55 + 0.45·escala_fase)
 ```
 
 ## 4. Clima y metabolismo (`src/lib/sim/world.ts`, `creature.ts`)
@@ -230,8 +230,35 @@ gasto = base + (velocidad/velBase)·movimiento
                  si humedad > 80 → gasto × 0.85
 ```
 
-- **Reproducción**: energía > 62 **y** (impulso > 0.55 **o** energía > 88).
-  La cría recibe 28 E, el progenitor pierde 34 E.
+- **Reproducción de las moscas** (control): energía > 62 **y** (impulso > 0.55
+  **o** energía > 88). La cría recibe 28 E, el progenitor pierde 34 E.
+
+## 4bis. Ciclo de vida y reproducción del gusano (v1.2)
+
+Escala **1 s ≈ 1 h real a 20 °C** (`WORM_LIFE` en `types.ts`, lógica en
+`creature.ts#tickWormLife` + `world.ts` para los huevos). Desarrollo con
+**Q10 ≈ 2**: `dev = 2^((T−20)/10)` limitado a [0.3, 2.6].
+
+| Fase | Duración (20 °C) | Escala cuerpo/metabolismo |
+|---|---|---|
+| Huevo (objeto del mundo) | 12 s de incubación | — (sin gasto) |
+| L1 | 12 s | 45 % / 35 % |
+| L2 | 10 s | 60 % / 50 % |
+| L3 | 10 s | 72 % / 65 % |
+| L4 | 10 s | 86 % / 85 % |
+| Adulto | senescencia ~300 s ± 20 % | 100 % / 100 % |
+| Dauer | hasta 320 s | 55 % / 5 %, no come, no envejece |
+
+- **Dauer**: hambre (energía < 18) durante 5 s en L2/L3 → fase de
+  resistencia; sale como L4 al oler comida 2.5 s.
+- **Reproducción neural** (hermafrodita autofecundado): huevos internos si
+  energía > 55 y adulto > 6 s; cada uno cuesta 16 E y 1 de esperma (140,
+  máx. 8 maduros). La **feromona de conglomerado** (densidad de gusanos en
+  70 px, canal 16 → ADL) frena la maduración hasta ×0.25. **La puesta solo
+  la dispara el circuito real HSN+VC** (salida "Reproducir" > 0.5, ráfagas
+  cada 1.4 s, por la vulva). El huevo contiene el cerebro clonado+mutado y
+  eclosiona como L1 con 24 E de vitelo.
+- Detalle completo: [SENSORES-CICLO-REPRODUCCION.md](./SENSORES-CICLO-REPRODUCCION.md).
 
 ## 5. Alimentos y ecología
 
@@ -260,9 +287,11 @@ miles de operaciones.
 ## 7. Evolución
 
 ```
-criatura.energy > 62 y quiere_hijo
-   → hijo = clon del cerebro + mutación
-     (mosca: 131 pesos ANN · gusano: 20 genes de neuromodulación)
+mosca: energía > 62 y quiere_hijo → cría directa (clon + mutación)
+gusano: circuito HSN+VC dispara → huevo en el mundo (clon + mutación
+        ya aplicados en la puesta) → incubación 12 s → L1 con vitelo
+     (mosca: 131 pesos ANN · gusano: 25 genes de neuromodulación;
+       los genomas v1.1 de 20 genes se migran automáticamente)
    → rasgos: maxSpeed ±6 %, vision ±5 % (clamped a rangos por especie)
    → generación = progenitor + 1   (se rastrea maxGen global)
 aptitud = comidas×2 + hijos×4 + edad×0.05   ← criterio del Museo
@@ -283,11 +312,15 @@ invierten con `screenToWorld`). Capas, en orden:
 
 1. Fondo del letterbox y terreno con gradiente + zona de suelo (45 %).
 2. Alimentos (frutas con hoja, detritos, azúcar centelleante, veneno con glow).
-3. Criaturas: moscas con alas batientes y estela; gusanos de 8 segmentos que
-   siguen la trayectoria de la cabeza con antenas.
-4. Tinte nocturno (`α = (1−luz)·0.52`) + tinte cálido en amanecer/atardecer.
-5. Lluvia procedural (partículas deterministas en función del tiempo).
-6. Selección: círculo de visión efectiva, anillo pulsante y barra de energía.
+3. Huevos de gusano: óvalos crema que se retuercen al madurar el embrión.
+4. Criaturas: moscas con alas batientes y estela; gusanos de 8 segmentos
+   escalados por fase (las larvas crecen), dauers grises con antenas
+   plegadas y ráfaga dorada al poner un huevo.
+5. Tinte nocturno (`α = (1−luz)·0.52`) + tinte cálido en amanecer/atardecer.
+6. Lluvia procedural (partículas deterministas en función del tiempo).
+7. Selección: círculo de visión efectiva, anillo pulsante, barra de energía
+   y **sentidos del gusano** (línea/ondas de olfato, rayos de fotofobia,
+   chispas de tacto, arco de propiocepción, aura de feromona, badge de fase).
 
 ## 9. Integración con React
 
@@ -301,10 +334,14 @@ invierten con `screenToWorld`). Capas, en orden:
   React re-renderiza a ~4.5 Hz como máximo.
 - El inspector neuronal (`brain-view.tsx`) redibuja el cerebro en cada
   snapshot según su arquitectura:
-  - **Gusano (conectoma)**: anillo con las 300 neuronas en tres sectores por
-    clase (ámbar sensoriales, gris interneuronas, esmeralda motoras), brillo
-    por potencial de membrana, destello blanco al disparar, etiquetas de
-    neuronas clave (AFD/ASE/AVA/VB/VC…), picos/tick y las 3 salidas motoras.
+  - **Gusano (conectoma)**: pestañas **"Circuito vivo"** (por defecto;
+    `circuit-view.tsx`: riel de 16 sentidos → subgrafo real sensorial →
+    comando → premotoras → pools → salidas, con partículas por arista
+    activa en un rAF interno y badge de estado conductual) y **"Anillo"**
+    (anillo con las 300 neuronas en tres sectores por clase, brillo por
+    potencial, destellos de disparo, etiquetas clave, picos/tick y las 3
+    salidas motoras). Encima, `sensor-strip.tsx` muestra los 17 canales
+    con sus neuronas reales.
   - **Moscón (ANN)**: red 12→8→3 con nodos coloreados por activación (verde
     positivo / rojo negativo), aristas por peso×activación y un anillo dorado
     cuando el impulso reproductivo supera 0.55.

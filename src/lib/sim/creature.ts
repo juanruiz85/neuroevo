@@ -1,12 +1,46 @@
-// Criatura: sentidos -> cerebro (adaptador: ANN o conectoma biológico)
-// -> movimiento, metabolismo y reproducción.
+// Criatura: sentidos → cerebro (adaptador: ANN o conectoma biológico)
+// → movimiento, metabolismo, ciclo de vida y reproducción.
+//
+// GUSANOS (C. elegans, biología real — ver docs/SENSORES-CICLO-REPRODUCCION.md):
+//   · 17 canales sensoriales mapeados a neuronas reales (sensors.ts).
+//   · Ciclo de vida L1→L2→L3→L4→Adulto con Q10 térmica; larvas más lentas
+//     y baratas; senescencia adulta con longevidad heredable por azar.
+//   · Dauer: hambre sostenida en L2/L3 → fase de resistencia (boca sellada,
+//     metabolismo ~5%, sin envejecer) hasta volver a oler comida.
+//   · Reproducción: hermafrodita con autofecundación y esperma limitado;
+//     los huevos maduran gastando energía (más lento con feromona de
+//     conglomerado) y SOLO se ponen cuando el circuito neural real
+//     HSN+VC dispara la salida "Reproducir". Los huevos son objetos del
+//     mundo que eclosionan como L1 (world.ts).
+//
+// MOSCAS: red evolutiva 12→8→3 (especie de control, sin cambios).
 
-import { NN_IN } from './nn'
 import { createBrain, type IBrainAdapter } from './connectome/adapter'
-import { SPECIES_CONFIG, clamp, type Species } from './types'
+import { CH, NN_CHANNELS } from './connectome/sensors'
+import {
+  SPECIES_CONFIG,
+  WORM_LIFE,
+  WORM_STAGE_DRAIN,
+  WORM_STAGE_SCALE,
+  clamp,
+  type Species,
+  type WormStage,
+} from './types'
 import type { World } from './world'
 
 const POISON_MASK = 8
+
+/** Velocidad de desarrollo con la temperatura (Q10 ≈ 2, óptimo 20 °C). */
+export function wormDevRate(temp: number): number {
+  return clamp(Math.pow(2, (temp - 20) / 10), 0.3, 2.6)
+}
+
+/** Duración de una fase larvaria a 20 °C (s). */
+export function wormStageDuration(stage: WormStage): number {
+  if (stage === 'adult') return WORM_LIFE.adultMedian
+  if (stage === 'dauer') return WORM_LIFE.dauerMax
+  return WORM_LIFE.stages[stage]
+}
 
 export interface CreatureOpts {
   species: Species
@@ -18,6 +52,8 @@ export interface CreatureOpts {
   maxSpeed?: number
   vision?: number
   energy?: number
+  /** Fase inicial del ciclo de vida (gusanos; por defecto adulto). */
+  stage?: WormStage
 }
 
 export class Creature {
@@ -37,7 +73,7 @@ export class Creature {
   maxSpeed: number
   /** Rango sensorial base heredado (px), sujeto a evolución. */
   vision: number
-  /** Rango sensorial efectivo tras aplicar clima. */
+  /** Rango sensorial efectivo tras aplicar clima y fase vital. */
   effVision: number
   bodyTemp: number
   foodEaten = 0
@@ -47,7 +83,39 @@ export class Creature {
   readonly trailX: number[] = []
   readonly trailY: number[] = []
   readonly segs: { x: number; y: number }[] = []
-  private readonly inputs: number[] = new Array<number>(NN_IN).fill(0)
+
+  // ——— Ciclo de vida (gusanos) ———
+  stage: WormStage = 'adult'
+  /** Tiempo dentro de la fase actual (escalado por Q10 en larvas). */
+  stageT = 0
+  /** Tiempo como adulto (senescencia). */
+  adultT = 0
+  /** Longevidad adulta sorteada al nacer (genética + azar). */
+  lifespan: number = WORM_LIFE.adultMedian
+  matureEggs = 0
+  spermLeft = WORM_LIFE.spermCap
+  eggsLaid = 0
+  private eggTimer = 0
+  private layCd = 0
+  private starveT = 0
+  /** Tiempo en fase dauer (visible para el inspector). */
+  dauerT = 0
+  private dauerExitT = 0
+
+  // ——— Sensores de fase (decaen, como receptores fáscicos reales) ———
+  /** Destello de tacto cefálico (para el canal ASH/FLP/OLQ y el render). */
+  touchF = 0
+  /** Destello de tacto caudal (PLM). */
+  touchB = 0
+  /** Anillo dorado de puesta (render). */
+  laidFlash = 0
+  private prevHeading = 0
+  private proprioSm = 0
+  private foodNearSm = 0
+  private foodPrevSm = 0
+  private foodDeltaSm = 0
+
+  private readonly inputs: number[] = new Array<number>(NN_CHANNELS).fill(0)
 
   constructor(opts: CreatureOpts) {
     const cfg = SPECIES_CONFIG[opts.species]
@@ -68,6 +136,9 @@ export class Creature {
     this.bodyTemp = 22
     this.wingPhase = Math.random() * 10
     if (this.species === 'worm') {
+      this.stage = opts.stage ?? 'adult'
+      // Longevidad adulta con varianza individual (±20 %).
+      this.lifespan = WORM_LIFE.adultMedian * (0.8 + Math.random() * 0.4)
       for (let i = 0; i < 8; i++) this.segs.push({ x: this.x, y: this.y })
     }
   }
@@ -75,6 +146,11 @@ export class Creature {
   /** Aptitud total: se usa para elegir las élites del Museo. */
   get fitness(): number {
     return this.foodEaten * 2 + this.children * 4 + this.age * 0.05
+  }
+
+  /** Escala locomotora según la fase (las larvas son más pequeñas/lentas). */
+  private get stageScale(): number {
+    return this.species === 'worm' ? WORM_STAGE_SCALE[this.stage] : 1
   }
 
   tick(world: World, dt: number): void {
@@ -96,8 +172,8 @@ export class Creature {
       // Visión dependiente de la luz + la lluvia la entorpece.
       vision *= (0.25 + 0.75 * light) * (1 - 0.35 * rain)
     } else {
-      // Quimiorreceptores: la humedad afina el olfato.
-      vision *= 0.9 + (env.humidity / 100) * 0.3
+      // Quimiorreceptores: la humedad afina el olfato; las larvas huelen menos lejos.
+      vision *= (0.9 + (env.humidity / 100) * 0.3) * (0.55 + 0.45 * this.stageScale)
     }
     this.effVision = vision
 
@@ -107,35 +183,35 @@ export class Creature {
     const crowd = world.countNeighbors(this.x, this.y, 42, this.species)
 
     const inp = this.inputs
+    inp.fill(0) // reset de todos los canales cada tick
     inp[0] = 1 // sesgo
-    inp[1] = this.energy / cfg.maxEnergy
-    inp[2] = clamp((temp - cfg.optimalTemp) / 9, -1, 1) // confort térmico
-    inp[3] = light
-    inp[4] = env.humidity / 100
+    inp[CH.ENERGY] = this.energy / cfg.maxEnergy
+    inp[CH.THERMO] = clamp((temp - cfg.optimalTemp) / 9, -1, 1) // confort térmico
+    inp[CH.LIGHT] = light
+    inp[CH.HUMIDITY] = env.humidity / 100
     if (poison) {
-      setDirection(inp, 8, this, poison.x, poison.y, vision)
-    } else {
-      inp[8] = 0
-      inp[9] = 0
-      inp[10] = 0
+      setDirection(inp, CH.POISON_X, this, poison.x, poison.y, vision)
     }
     if (food) {
-      setDirection(inp, 5, this, food.x, food.y, vision)
-    } else {
-      inp[5] = 0
-      inp[6] = 0
-      inp[7] = 0
+      setDirection(inp, CH.FOOD_X, this, food.x, food.y, vision)
     }
-    inp[11] = Math.min(1, crowd / 5)
+    inp[CH.CROWD] = Math.min(1, crowd / 5)
+
+    if (this.species === 'worm') {
+      this.senseWorm(world, inp, food, dt)
+    }
 
     // — Piensa —
     this.brain.forward(inp, coldVoltage)
 
     // — Se mueve —
-    this.heading += this.brain.oA[0] * cfg.turnRate * dt
+    const dauer = this.stage === 'dauer'
+    const locoScale = this.species === 'worm' ? this.stageScale * (dauer ? 0.14 : 1) : 1
+    this.heading += this.brain.oA[0] * cfg.turnRate * locoScale * dt
     const thrust = Math.max(0, this.brain.oA[1])
     this.speed =
-      thrust * this.maxSpeed * (this.species === 'fly' ? 1 - 0.2 * rain : 1)
+      thrust * this.maxSpeed * locoScale *
+      (this.species === 'fly' ? 1 - 0.2 * rain : 1)
     this.x += Math.cos(this.heading) * this.speed * dt
     this.y += Math.sin(this.heading) * this.speed * dt
 
@@ -159,6 +235,8 @@ export class Creature {
     // — Animación —
     this.wingPhase += dt * (14 + this.speed * 0.18)
     if (this.species === 'worm') {
+      // La larva crece: la separación de segmentos escala con la fase.
+      const want = 3.4 * (0.6 + 0.4 * this.stageScale)
       this.segs[0].x = this.x
       this.segs[0].y = this.y
       for (let i = 1; i < this.segs.length; i++) {
@@ -167,7 +245,6 @@ export class Creature {
         const dx = seg.x - prev.x
         const dy = seg.y - prev.y
         const d = Math.hypot(dx, dy) || 1
-        const want = 3.4
         if (d > want) {
           seg.x = prev.x + (dx / d) * want
           seg.y = prev.y + (dy / d) * want
@@ -183,32 +260,179 @@ export class Creature {
     }
 
     // — Metabolismo —
-    let drain = cfg.baseDrain + (this.speed / cfg.baseSpeed) * cfg.moveDrain
+    const stageDrain = this.species === 'worm' ? WORM_STAGE_DRAIN[this.stage] : 1
+    let drain = (cfg.baseDrain + (this.speed / cfg.baseSpeed) * cfg.moveDrain) * stageDrain
     if (temp > 33) {
       // Calor extremo: metabolismo acelerado y desgaste (puede ser fatal).
-      drain += (temp - 33) * (this.species === 'fly' ? 0.12 : 0.06)
+      drain += (temp - 33) * (this.species === 'fly' ? 0.12 : 0.06) * stageDrain
     }
     if (temp < 8) drain *= 0.7 // letargo: se gastan menos energías
     if (this.species === 'worm') {
-      // Los gusanos se desecan bajo el sol caluroso y seco.
-      drain += light * Math.max(0, temp - 24) * (1 - env.humidity / 100) * 0.16
+      // Los gusanos se desecan bajo el sol caluroso y seco (la dauer resiste).
+      const dry = light * Math.max(0, temp - 24) * (1 - env.humidity / 100) * 0.16
+      drain += dauer ? dry * 0.25 : dry * stageDrain
       if (env.humidity > 80) drain *= 0.85
+      if (dauer) drain += 0.03 // mantenimiento mínimo de la dauer
     }
     this.energy -= drain * dt
     this.age += dt
 
-    // — Come (o se envenena) —
-    world.eatFoodAt(this)
+    // — Come (o se envenena) — La dauer tiene la boca sellada: no come.
+    if (!dauer) world.eatFoodAt(this)
 
-    // — Se reproduce —
-    const wantsChild =
-      this.brain.oA[2] > 0.55 || this.energy > cfg.reproMinEnergy + 26
-    if (this.energy > cfg.reproMinEnergy && wantsChild) {
-      world.spawnChild(this)
+    // — Ciclo de vida y reproducción —
+    if (this.species === 'worm') {
+      this.tickWormLife(world, food, dt)
+    } else {
+      const wantsChild =
+        this.brain.oA[2] > 0.55 || this.energy > cfg.reproMinEnergy + 26
+      if (this.energy > cfg.reproMinEnergy && wantsChild) {
+        world.spawnChild(this)
+      }
+      if (this.age > cfg.maxAge) this.alive = false
     }
 
     // — Muere —
-    if (this.energy <= 0 || this.age > cfg.maxAge) this.alive = false
+    if (this.energy <= 0) this.alive = false
+  }
+
+  /**
+   * Sentidos propios del gusano: tacto cefálico/caudal (circuitos reales
+   * ASH→AVA→reversa y PLM→PVC→avance), propiocepción del ondular,
+   * deriva del gradiente de comida (klinotaxis) y feromona de conglomerado.
+   */
+  private senseWorm(
+    world: World,
+    inp: number[],
+    food: { x: number; y: number } | null,
+    dt: number,
+  ): void {
+    const decay = Math.exp(-dt * 6)
+
+    // Tacto: nariz y cola contra bordes u otros cuerpos (receptores fáscicos).
+    const reach = 9
+    const nx = this.x + Math.cos(this.heading) * 9
+    const ny = this.y + Math.sin(this.heading) * 9
+    const tx = this.x - Math.cos(this.heading) * 9
+    const ty = this.y - Math.sin(this.heading) * 9
+    const hitN =
+      nx < 13 || nx > world.width - 13 || ny < 13 || ny > world.height - 13 ||
+      world.countNeighbors(nx, ny, reach, 'any') > 0
+    const hitB =
+      tx < 13 || tx > world.width - 13 || ty < 13 || ty > world.height - 13 ||
+      world.countNeighbors(tx, ty, reach, 'any') > 0
+    this.touchF = hitN ? 1 : this.touchF * decay
+    this.touchB = hitB ? 1 : this.touchB * decay
+    inp[CH.TOUCH_FRONT] = this.touchF
+    inp[CH.TOUCH_BACK] = this.touchB
+
+    // Propiocepción: firma con signo de la curvatura del último giro
+    // (DVA/SMDD sienten el estiramiento del cuerpo al ondular).
+    const turn = (this.heading - this.prevHeading) / Math.max(dt, 1e-4)
+    this.prevHeading = this.heading
+    this.proprioSm += (turn - this.proprioSm) * Math.min(1, dt * 8)
+    inp[CH.PROPRIO] = clamp(this.proprioSm / 2.2, -1, 1)
+
+    // Deriva del gradiente (klinotaxis): ASE dispara al CAMBIO, no al nivel.
+    const near = food ? 1 - Math.min(1, Math.hypot(food.x - this.x, food.y - this.y) / Math.max(1, this.effVision)) : 0
+    this.foodNearSm += (near - this.foodNearSm) * Math.min(1, dt * 3)
+    const d = (this.foodNearSm - this.foodPrevSm) / Math.max(dt, 1e-4)
+    this.foodPrevSm = this.foodNearSm
+    this.foodDeltaSm += (clamp(d * 0.9, -1, 1) - this.foodDeltaSm) * Math.min(1, dt * 10)
+    inp[CH.FOOD_DELTA] = this.foodDeltaSm
+
+    // Feromona de conglomerado (ascarósidos): densidad local de gusanos.
+    inp[CH.PHEROMONE] = world.wormPheromone(this.x, this.y)
+  }
+
+  /** Fases larvarias, dauer, senescencia y puesta de huevos. */
+  private tickWormLife(
+    world: World,
+    food: { x: number; y: number } | null,
+    dt: number,
+  ): void {
+    this.laidFlash = this.laidFlash > 0 ? this.laidFlash - dt * 1.6 : 0
+
+    if (this.stage === 'dauer') {
+      // DauER: sin envejecer, sin comer, esperando comida (sale como L4).
+      this.dauerT += dt
+      if (food) this.dauerExitT += dt
+      else this.dauerExitT = Math.max(0, this.dauerExitT - dt * 0.5)
+      if (this.dauerExitT > 2.5) {
+        this.stage = 'l4'
+        this.stageT = 0
+        this.energy = Math.max(this.energy, 22)
+      } else if (this.dauerT > WORM_LIFE.dauerMax) {
+        this.alive = false
+      }
+      return
+    }
+
+    if (this.stage === 'adult') {
+      this.adultT += dt * (1 + Math.max(0, this.bodyTemp - 26) * 0.05)
+      // Autofecundación: maduración de huevos internos con esperma limitado.
+      const pher = world.wormPheromone(this.x, this.y)
+      if (
+        this.adultT > WORM_LIFE.adultMatureDelay &&
+        this.energy > WORM_LIFE.eggMinEnergy &&
+        this.spermLeft > 0 &&
+        this.matureEggs < WORM_LIFE.matureCap
+      ) {
+        this.eggTimer += (dt / WORM_LIFE.eggInterval) * (1 - 0.75 * pher)
+        if (this.eggTimer >= 1) {
+          this.eggTimer = 0
+          this.matureEggs++
+          this.spermLeft--
+          this.energy -= WORM_LIFE.eggEnergy
+        }
+      } else if (this.energy <= WORM_LIFE.eggMinEnergy) {
+        this.eggTimer = Math.max(0, this.eggTimer - dt * 0.2)
+      }
+      // Puesta SOLO cuando el circuito HSN+VC dispara la salida motora.
+      this.layCd -= dt
+      if (
+        this.matureEggs > 0 &&
+        this.brain.oA[2] > 0.5 &&
+        this.layCd <= 0
+      ) {
+        world.layEgg(this)
+        this.layCd = WORM_LIFE.layCooldown
+      }
+      // Senescencia.
+      if (this.adultT > this.lifespan) this.alive = false
+      return
+    }
+
+    // Fase larvaria: el desarrollo avanza con la temperatura (Q10).
+    this.stageT += dt * wormDevRate(this.bodyTemp)
+    const dur = WORM_LIFE.stages[this.stage as 'l1' | 'l2' | 'l3' | 'l4']
+    // Entrada en dauer: hambre sostenida en L2/L3 (decision real L2d).
+    if (this.stage === 'l2' || this.stage === 'l3') {
+      this.starveT = this.energy < 18 ? this.starveT + dt : 0
+      if (this.starveT > WORM_LIFE.dauerStarveT) {
+        this.stage = 'dauer'
+        this.dauerT = 0
+        this.dauerExitT = 0
+        return
+      }
+    }
+    if (this.stageT >= dur) {
+      if (this.stage === 'l4') {
+        this.stage = 'adult'
+        this.adultT = 0
+        this.matureEggs = 0
+        this.eggTimer = 0
+      } else {
+        const next: Record<'l1' | 'l2' | 'l3', 'l2' | 'l3' | 'l4'> = {
+          l1: 'l2',
+          l2: 'l3',
+          l3: 'l4',
+        }
+        this.stage = next[this.stage as 'l1' | 'l2' | 'l3']
+        this.stageT = 0
+        this.energy -= 3 // coste de la muda
+      }
+    }
   }
 }
 

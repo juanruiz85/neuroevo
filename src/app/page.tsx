@@ -12,6 +12,7 @@ import {
   CloudSun,
   Dna,
   Droplets,
+  Egg,
   Moon,
   Pause,
   Sun,
@@ -81,6 +82,9 @@ export default function Home() {
                 </Chip>
                 <Chip icon={Worm} className="text-emerald-500">
                   {ui.counts.worms}
+                </Chip>
+                <Chip icon={Egg} className="text-amber-400">
+                  {ui.counts.eggs}
                 </Chip>
                 <Chip icon={Dna}>G{ui.maxGen}</Chip>
                 {ui.extinctFly && (

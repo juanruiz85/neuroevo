@@ -1,6 +1,7 @@
 // El mundo: criaturas, alimentos, clima, grilla espacial, evolución y estadísticas.
 
-import { Creature } from './creature'
+import type { IBrainAdapter } from './connectome/adapter'
+import { Creature, wormDevRate, wormStageDuration } from './creature'
 import { Brain } from './nn'
 import { ElegansBrain, ELEGANS_GENES } from './connectome/elegans'
 import { Rng } from './rng'
@@ -9,6 +10,7 @@ import {
   FOOD_INFO,
   MASK,
   SPECIES_CONFIG,
+  WORM_LIFE,
   clamp,
   type CreatureView,
   type EliteRecord,
@@ -55,6 +57,50 @@ export class Food {
   }
 }
 
+/**
+ * Huevo de C. elegans: depositado por el circuito HSN+VC de la madre,
+ * incuba con la temperatura (Q10) y eclosiona como larva L1 con vitelo.
+ * El cerebro ya está clonado y mutado (la meiosis ocurrió en la puesta).
+ */
+export class WormEgg {
+  static nextId = 1
+  readonly id: number
+  x: number
+  y: number
+  /** Cerebro clonado+mutado de la madre (hermafrodita autofecundado). */
+  readonly brain: IBrainAdapter
+  readonly generation: number
+  readonly parentGen: number
+  readonly maxSpeed: number
+  readonly vision: number
+  /** Cuenta atrás de embriogénesis (s, a 20 °C). */
+  embryoT: number
+  /** Edad total del huevo (para los no eclosionados). */
+  age = 0
+  hatched = false
+  dead = false
+
+  constructor(
+    x: number,
+    y: number,
+    brain: IBrainAdapter,
+    generation: number,
+    parentGen: number,
+    maxSpeed: number,
+    vision: number,
+  ) {
+    this.id = WormEgg.nextId++
+    this.x = x
+    this.y = y
+    this.brain = brain
+    this.generation = generation
+    this.parentGen = parentGen
+    this.maxSpeed = maxSpeed
+    this.vision = vision
+    this.embryoT = WORM_LIFE.eggEmbryo
+  }
+}
+
 export class World {
   readonly width: number
   readonly height: number
@@ -63,6 +109,8 @@ export class World {
   ticks = 0
   readonly rng = new Rng()
   creatures: Creature[] = []
+  /** Huevos en incubación (depositados por el circuito HSN+VC real). */
+  eggs: WormEgg[] = []
   foods: Food[] = []
   light = 0.5
   ambientTemp = 24
@@ -106,6 +154,7 @@ export class World {
 
   reset(): void {
     this.creatures = []
+    this.eggs = []
     this.foods = []
     this.time = 0
     this.ticks = 0
@@ -166,6 +215,41 @@ export class World {
 
     for (const c of this.creatures) {
       if (c.alive) c.tick(this, dt)
+    }
+
+    // Huevos: la embriogénesis avanza con la temperatura (Q10) y el huevo
+    // eclosiona como L1 con su reserva de vitelo. Con el mundo saturado
+    // (popCap) el huevo espera; si envejece demasiado, se pierde.
+    const wormCap = SPECIES_CONFIG.worm.popCap
+    for (const e of this.eggs) {
+      e.age += dt
+      if (!e.hatched && e.embryoT > 0) {
+        e.embryoT -= dt * wormDevRate(this.ambientTemp)
+      }
+      if (!e.hatched && e.embryoT <= 0 && this.counts.worm < wormCap) {
+        e.hatched = true
+        this.creatures.push(
+          new Creature({
+            species: 'worm',
+            x: clamp(e.x, 15, this.width - 15),
+            y: clamp(e.y, 15, this.height - 15),
+            brain: e.brain,
+            generation: e.generation,
+            parentGen: e.parentGen,
+            maxSpeed: e.maxSpeed,
+            vision: e.vision,
+            energy: WORM_LIFE.yolkEnergy,
+            stage: 'l1',
+          }),
+        )
+        this.counts.worm++
+        this.births++
+        if (e.generation > this.maxGen) this.maxGen = e.generation
+      }
+      if (e.age > 48) e.dead = true
+    }
+    if (this.ticks % 15 === 0) {
+      this.eggs = this.eggs.filter((e) => !e.dead && !e.hatched)
     }
 
     // Los cadáveres se reciclan como detritos (ciclo de energía).
@@ -252,7 +336,12 @@ export class World {
     return best
   }
 
-  countNeighbors(x: number, y: number, range: number, species: Species): number {
+  countNeighbors(
+    x: number,
+    y: number,
+    range: number,
+    species: Species | 'any',
+  ): number {
     const cx = clamp((x / GRID) | 0, 0, this.cols - 1)
     const cy = clamp((y / GRID) | 0, 0, this.rows - 1)
     let n = 0
@@ -264,7 +353,8 @@ export class World {
         const xx = cx + dx
         if (xx < 0 || xx >= this.cols) continue
         for (const c of this.creatureGrid[yy * this.cols + xx]) {
-          if (!c.alive || c.species !== species) continue
+          if (!c.alive) continue
+          if (species !== 'any' && c.species !== species) continue
           const ddx = c.x - x
           const ddy = c.y - y
           if (ddx * ddx + ddy * ddy < r2) n++
@@ -272,6 +362,15 @@ export class World {
       }
     }
     return n
+  }
+
+  /**
+   * Feromona de conglomerado (ascarósidos): la densidad local de gusanos
+   * como proxy del nivel de feromona secretada al medio. Alta densidad
+   * frena la maduración de huevos y (con hambre) provoca la dauer.
+   */
+  wormPheromone(x: number, y: number): number {
+    return Math.min(1, this.countNeighbors(x, y, 70, 'worm') / 5)
   }
 
   eatFoodAt(c: Creature): void {
@@ -311,7 +410,51 @@ export class World {
 
   // ——— Reproducción y evolución ———
 
+  /**
+   * Puesta de un huevo de C. elegans: la dispara ÚNICAMENTE el circuito
+   * neural real HSN+VC (salida "Reproducir"). El huevo sale por la vulva
+   * (segmento medio del cuerpo), ya contiene el cerebro clonado+mutado
+   * (autofecundación con esperma limitado) y eclosionará como L1.
+   */
+  layEgg(parent: Creature): void {
+    const cfg = SPECIES_CONFIG.worm
+    if (this.counts.worm + this.eggs.length >= cfg.popCap) return
+    const rng = this.rng
+    const brain = parent.brain.clone()
+    brain.mutate(rng, 0.1, 0.42)
+    const maxSpeed = clamp(
+      parent.maxSpeed * (1 + rng.gauss(0.06)),
+      cfg.baseSpeed * 0.7,
+      cfg.baseSpeed * 1.7,
+    )
+    const vision = clamp(
+      parent.vision * (1 + rng.gauss(0.05)),
+      cfg.baseVision * 0.7,
+      cfg.baseVision * 1.4,
+    )
+    // La vulva real está a mitad del cuerpo: el huevo aparece detrás.
+    const vulva = parent.segs[3] ?? parent
+    this.eggs.push(
+      new WormEgg(
+        clamp(vulva.x + rng.gauss(4), 12, this.width - 12),
+        clamp(vulva.y + rng.gauss(4), 12, this.height - 12),
+        brain,
+        parent.generation + 1,
+        parent.generation,
+        maxSpeed,
+        vision,
+      ),
+    )
+    parent.matureEggs--
+    parent.eggsLaid++
+    parent.children++
+    parent.laidFlash = 1
+  }
+
   spawnChild(parent: Creature): void {
+    // Solo las moscas (especie de control ANN) se reproducen por brotes
+    // directos; los gusanos ponen huevos a través de su circuito neural.
+    if (parent.species !== 'fly') return
     const cfg = SPECIES_CONFIG[parent.species]
     if (this.counts[parent.species] >= cfg.popCap) return
     const rng = this.rng
@@ -422,6 +565,7 @@ export class World {
       t: Math.round(this.time * 10) / 10,
       flies: fly,
       worms: worm,
+      eggs: this.eggs.length,
       fruit: this.foodCounts.fruit,
       detritus: this.foodCounts.detritus,
       sugar: this.foodCounts.sugar,
@@ -451,6 +595,7 @@ export class World {
       counts: {
         flies: this.counts.fly,
         worms: this.counts.worm,
+        eggs: this.eggs.length,
         fruit: this.foodCounts.fruit,
         detritus: this.foodCounts.detritus,
         sugar: this.foodCounts.sugar,
@@ -477,7 +622,7 @@ export class World {
     const c = this.getSelected()
     if (!c) return null
     const con = c.brain.connectomeView?.() ?? null
-    return {
+    const base = {
       id: c.id,
       species: c.species,
       generation: c.generation,
@@ -485,7 +630,7 @@ export class World {
       energy: c.energy,
       maxEnergy: SPECIES_CONFIG[c.species].maxEnergy,
       age: c.age,
-      maxAge: SPECIES_CONFIG[c.species].maxAge,
+      maxAge: c.species === 'worm' ? Math.round(c.lifespan) : SPECIES_CONFIG[c.species].maxAge,
       speed: c.speed,
       maxSpeed: c.maxSpeed,
       vision: c.vision,
@@ -501,6 +646,28 @@ export class World {
       outputs: Array.from(c.brain.oA),
       weights: Array.from(c.brain.w),
       brainKind: c.brain.kind,
+    }
+    let worm: Partial<CreatureView> = {}
+    if (c.species === 'worm') {
+      const dur = wormStageDuration(c.stage)
+      worm = {
+        stage: c.stage,
+        stagePct:
+          c.stage === 'adult'
+            ? clamp(c.adultT / c.lifespan, 0, 1)
+            : c.stage === 'dauer'
+              ? clamp(c.dauerT / WORM_LIFE.dauerMax, 0, 1)
+              : clamp(c.stageT / dur, 0, 1),
+        adultAge: Math.round(c.adultT * 10) / 10,
+        eggsLaid: c.eggsLaid,
+        matureEggs: c.matureEggs,
+        spermLeft: c.spermLeft,
+        pheromone: Math.round(this.wormPheromone(c.x, c.y) * 100) / 100,
+      }
+    }
+    return {
+      ...base,
+      ...worm,
       ...(con ? { connectome: { v: con.v as number[], s: con.s as number[] } } : {}),
     }
   }
@@ -557,7 +724,9 @@ export class World {
     // (131 pesos ANN) se siembran tal cual eran: ANN clásica.
     const isElegans =
       rec.brain.kind === 'elegans' ||
-      (rec.species === 'worm' && rec.brain.weights.length === ELEGANS_GENES)
+      (rec.species === 'worm' &&
+        (rec.brain.weights.length === ELEGANS_GENES ||
+          rec.brain.weights.length === 20))
     for (let i = 0; i < n; i++) {
       const brain = isElegans
         ? new ElegansBrain(new Float32Array(rec.brain.weights))

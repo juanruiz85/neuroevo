@@ -9,16 +9,20 @@
 //   · Clasificación: 86 sensoriales / 50 motoras / 164 interneuronas.
 //   · Procedencia: OpenWorm (herm_full_edgelist.csv + CElegansNeuronTables.xls).
 //
-// MAPEO SENSORIAL (12 canales del mundo → neuronas reales):
+// MAPEO SENSORIAL (17 canales del mundo → neuronas reales; ver sensors.ts):
 //   Sesgo/tonico  → AVB (comando de avance) + RMDD (oscilador cefálico)
-//   Energía       → ADF (integración del estado interno; hambre = 1−energía)
-//   Térmico       → AFD (termosensor primario, respuesta ON/OFF a gradientes)
-//                   + AWC (termosensor secundario) — señal con signo
-//   Luz           → ASH (nociceptor polimodal; C. elegans es fotofóbico)
+//   Energía       → ADF (hambre = 1−energía) + HSN (tono reproductivo 5HT-like)
+//   Térmico       → AFD (termosensor primario) + AWC (secundario) — con signo
+//   Luz           → ASH (LITE-1: fotofobia; C. elegans no tiene ojos)
 //   Humedad       → BAG (sensor ambiental)
 //   Comida X/Y/c. → AWC/AWA (olfato, asimetría L/R) + ASE (gusto)
 //   Veneno X/Y/c. → PHA/PHB (fásmidos aversivos) + ASH (nocicepción)
-//   Multitud      → PVD (tacto brusco/nocicepción mecánica) + ALM (tacto suave)
+//   Multitud      → PVD (tacto brusco) + ALM (tacto suave)
+//   Tacto nariz   → ASH+FLP+OLQ (circuito real de choque frontal → reversa)
+//   Tacto cola    → PLM (circuito real PLM→PVC→VB/DB → acelerón de avance)
+//   Propiocepción → DVA (TRP-4, estiramiento corporal) + SMDD — con signo
+//   Δ Gradiente   → ASE L/R (klinotaxis: responde al cambio, no al nivel)
+//   Feromona      → ADL (ascarósidos de conglomerado)
 //
 // MAPEO MOTOR (pools reales → 3 salidas del Canvas):
 //   Avanzar  ← VB01-11, DB01-07, AVB, PVC  (comando B de avance)
@@ -27,18 +31,19 @@
 //   (VA/DA + AVA/AVD/AVE, comando A: al retroceder re-orienta, como el animal)
 //   Poner    ← VC01-06 + HSN (circuito real de puesta de huevos)
 //
-// GENOMA EVOLUTIVO (20 genes — el GA no toca la estructura del conectoma,
+// GENOMA EVOLUTIVO (25 genes — el GA no toca la estructura del conectoma,
 // evoluciona la neuromodulación y la excitabilidad, como en el animal):
-//   [0..11] ganancia sensorial por canal
-//   [12..15] escalas de transmisión: ACh / GABA (inhibitoria) / Glu /
+//   [0..16] ganancia sensorial por canal (17 sentidos)
+//   [17..20] escalas de transmisión: ACh / GABA (inhibitoria) / Glu /
 //            monoaminas+neuropéptidos (5HT, DA, OCT, TA, FMRF)
-//   [16] constante de fuga τ   [17] umbral de disparo
-//   [18] periodo refractario    [19] impulso tónico
+//   [21] constante de fuga τ   [22] umbral de disparo
+//   [23] periodo refractario    [24] impulso tónico
 // —───────────────────────────────────────────────────────────────────────────
 
 import rawConnectome from '../data/c_elegans_connectome.json'
 import { Rng } from '../rng'
 import { clamp } from '../types'
+import { CH } from './sensors'
 import type {
   BrainKind,
   ConnectomeActivity,
@@ -192,8 +197,13 @@ function buildGraph(): ElegansGraph {
     S(0, 'RMDDL', 0.3), S(0, 'RMDDR', 0.3),
     S(0, 'RMDVL', 0.3), S(0, 'RMDVR', 0.3),
   ])
-  // [1] Energía → ADF (hambre = 1 − energía).
-  add([S(1, 'ADFL', 0.9), S(1, 'ADFR', 0.9), S(1, 'ASEL', 0.25), S(1, 'ASER', 0.25)])
+  // [1] Energía → ADF (hambre = 1 − energía) + HSN (tono reproductivo:
+  //   con comida el circuito de puesta se excita, como la serotonina de NSM).
+  add([
+    S(1, 'ADFL', 0.9), S(1, 'ADFR', 0.9),
+    S(1, 'ASEL', 0.25), S(1, 'ASER', 0.25),
+    S(1, 'HSNL', 0.5), S(1, 'HSNR', 0.5),
+  ])
   // [2] Térmico → AFD (primario, con signo) + AWC (secundario).
   add([
     S(2, 'AFDL', 1.15), S(2, 'AFDR', 1.15),
@@ -216,6 +226,29 @@ function buildGraph(): ElegansGraph {
   add([S(10, 'ASHL', 1.3), S(10, 'ASHR', 1.3)])
   // [11] Multitud → PVD (tacto brusco) + ALM (tacto suave).
   add([S(11, 'PVDL', 1.0), S(11, 'PVDR', 1.0), S(11, 'ALML', 0.5), S(11, 'ALMR', 0.5)])
+  // [12] Tacto cefálico (nariz) → circuito REAL de choque frontal:
+  //   ASH (mecanonocicepción) + FLP/OLQ (mecanorreceptores de la nariz);
+  //   ASH→AVA→VA/DA desencadena la reversa en el animal.
+  add([
+    S(CH.TOUCH_FRONT, 'ASHL', 1.5), S(CH.TOUCH_FRONT, 'ASHR', 1.5),
+    S(CH.TOUCH_FRONT, 'FLPL', 0.6), S(CH.TOUCH_FRONT, 'FLPR', 0.6),
+    S(CH.TOUCH_FRONT, 'OLQDL', 0.5), S(CH.TOUCH_FRONT, 'OLQDR', 0.5),
+  ])
+  // [13] Tacto caudal → PLM (tacto suave posterior): PLM→PVC→VB/DB
+  //   acelera el avance — el reflejo real de "tocar la cola".
+  add([S(CH.TOUCH_BACK, 'PLML', 1.4), S(CH.TOUCH_BACK, 'PLMR', 1.4)])
+  // [14] Propiocepción → DVA (TRP-4, estiramiento de todo el cuerpo) +
+  //   SMDD (curvatura cefálica). Señal con signo (ondulación izq/der).
+  add([
+    S(CH.PROPRIO, 'DVA', 1.1),
+    S(CH.PROPRIO, 'SMDDL', 0.35), S(CH.PROPRIO, 'SMDVL', 0.35),
+  ])
+  // [15] Deriva del gradiente (klinotaxis) → ASE se adapta y dispara
+  //   al CAMBIO de concentración (borde de subida/bajada del gradiente).
+  add([S(CH.FOOD_DELTA, 'ASEL', 1.1), S(CH.FOOD_DELTA, 'ASER', 1.1)])
+  // [16] Feromona de conglomerado → ADL (los ascarósidos reales frenan
+  //   la puesta y provocan dauer combinados con hambre).
+  add([S(CH.PHEROMONE, 'ADLL', 1.0), S(CH.PHEROMONE, 'ADLR', 1.0)])
 
   const pool = (names: string[]): number[] => {
     const out: number[] = []
@@ -272,21 +305,21 @@ function getGraph(): ElegansGraph {
 
 // ——— Genoma ———————————————————————————————————————————————————————————————————
 
-export const ELEGANS_GENES = 20
+export const ELEGANS_GENES = 25
 
-const G_GAIN0 = 0
-const G_ACH = 12
-const G_GABA = 13
-const G_GLU = 14
-const G_MONO = 15
-const G_TAU = 16
-const G_VTH = 17
-const G_REFR = 18
-const G_TONIC = 19
+const G_GAINS = 17 // [0..16] ganancias sensoriales
+const G_ACH = 17
+const G_GABA = 18
+const G_GLU = 19
+const G_MONO = 20
+const G_TAU = 21
+const G_VTH = 22
+const G_REFR = 23
+const G_TONIC = 24
 
 /** Rangos de cada gen (la mutación respeta límites fisiológicos). */
 const GENE_BOUNDS: [number, number][] = [
-  ...Array.from({ length: 12 }, () => [0.15, 2.4] as [number, number]),
+  ...Array.from({ length: G_GAINS }, () => [0.15, 2.4] as [number, number]),
   [0.45, 1.9], [0.45, 1.9], [0.45, 1.9], [0.45, 1.9], // escalas tx
   [3.5, 14], // τ
   [1.0, 1.8], // umbral
@@ -294,9 +327,27 @@ const GENE_BOUNDS: [number, number][] = [
   [0.05, 0.9], // tónico
 ]
 
+/**
+ * Migra genomas v1.1 (20 genes) al formato v1.2 (25): inserta las ganancias
+ * de los 5 sentidos nuevos con valor neutro y desplaza los genes de
+ * dinámica LIF. Los registros antiguos del Museo siguen siendo sembrables.
+ */
+function migrateGenome(old: Float32Array): Float32Array {
+  if (old.length >= ELEGANS_GENES) return old
+  const g = new Float32Array(ELEGANS_GENES)
+  for (let i = 0; i < 12; i++) g[i] = old[i] ?? 1
+  for (let i = 12; i < G_GAINS; i++) g[i] = 1
+  for (let i = 0; i < 4; i++) g[G_ACH + i] = old[12 + i] ?? 1
+  g[G_TAU] = old[16] ?? 7.5
+  g[G_VTH] = old[17] ?? 1.35
+  g[G_REFR] = old[18] ?? 3
+  g[G_TONIC] = old[19] ?? 0.55
+  return g
+}
+
 function randomGenome(rng: Rng): Float32Array {
   const g = new Float32Array(ELEGANS_GENES)
-  for (let i = 0; i < 12; i++) g[i] = clamp(1 + rng.gauss(0.12), 0.4, 1.6)
+  for (let i = 0; i < G_GAINS; i++) g[i] = clamp(1 + rng.gauss(0.12), 0.4, 1.6)
   // El gen del canal tónico arranca alto: sin impulso locomotor el gusano
   // no explora y muere de hambre (la selección natural puede afinarlo luego).
   g[0] = clamp(1.25 + rng.gauss(0.1), 0.85, 1.6)
@@ -319,7 +370,7 @@ const SMOOTH = 0.28 // suavizado exponencial de los pools motores
 export class ElegansBrain implements IBrainAdapter {
   readonly kind: BrainKind = 'elegans'
   readonly w: Float32Array
-  readonly inA = new Float32Array(12)
+  readonly inA = new Float32Array(G_GAINS)
   readonly hA = new Float32Array(8)
   readonly oA = new Float32Array(3)
 
@@ -333,7 +384,8 @@ export class ElegansBrain implements IBrainAdapter {
   private eggRate = 0
 
   constructor(genome?: Float32Array, rng?: Rng) {
-    this.w = genome ?? randomGenome(rng ?? new Rng())
+    this.w =
+      genome == null ? randomGenome(rng ?? new Rng()) : migrateGenome(genome)
     const g = getGraph()
     this.V = new Float32Array(g.n)
     this.spike = new Uint8Array(g.n)
@@ -426,8 +478,8 @@ export class ElegansBrain implements IBrainAdapter {
     // en ráfagas cuando la red lo impulsa.
     this.oA[2] = 1 / (1 + Math.exp(-(this.eggRate - 0.14) * 11))
 
-    // 7) Espejos para el inspector.
-    for (let i = 0; i < 12; i++) this.inA[i] = inputs[i] ?? 0
+    // 7) Espejos para el inspector (17 canales sensoriales).
+    for (let i = 0; i < G_GAINS; i++) this.inA[i] = inputs[i] ?? 0
     this.hA[0] = meanClass(g, V, 0)
     this.hA[1] = meanClass(g, V, 1)
     this.hA[2] = meanClass(g, V, 2)
@@ -471,4 +523,143 @@ function meanClass(g: ElegansGraph, V: Float32Array, cls: 0 | 1 | 2): number {
     }
   }
   return n ? Math.round((sum / n) * 100) / 100 : 0
+}
+
+// ——— Subgrafo del circuito sensoriomotor (vista "Circuito vivo") ————————————
+// Las neuronas protagonistas de los 17 sentidos y de los circuitos de
+// comando, con las aristas REALES (químicas + gap) del dataset que las
+// conectan entre sí. Se calcula una única vez de forma perezosa.
+
+export interface CircuitNodeDef {
+  /** Índice global en ELEGANS_NAMES. */
+  i: number
+  /** Nombre (p. ej. 'ASHL'). */
+  n: string
+  /** Clase: 0 sensorial / 1 interneurona / 2 motoneurona. */
+  c: 0 | 1 | 2
+  /** Carril de dibujo: 0 sensorial, 1 comando, 2 premotora. */
+  lane: 0 | 1 | 2
+  /** Función resumida en español. */
+  role: string
+}
+
+export interface CircuitEdgeDef {
+  a: number
+  b: number
+  w: number
+  kind: 'chem' | 'gap'
+}
+
+export interface CircuitBundleDef {
+  from: number
+  pool: 'forward' | 'backward' | 'head' | 'egg'
+  /** Suma de |pesos| de las aristas reales hacia el pool. */
+  w: number
+}
+
+export interface CircuitViewDef {
+  nodes: CircuitNodeDef[]
+  edges: CircuitEdgeDef[]
+  bundles: CircuitBundleDef[]
+  pools: Record<
+    'forward' | 'backward' | 'headDorsal' | 'headVentral' | 'egg',
+    number[]
+  >
+}
+
+const CIRCUIT_NODE_DEFS: [string, 0 | 1 | 2, string][] = [
+  // Sensoriales (carril 0)
+  ['AFDL', 0, 'Termosensor (AFD)'], ['AFDR', 0, 'Termosensor (AFD)'],
+  ['ASHL', 0, 'Nocicepción: luz, veneno, nariz (ASH)'], ['ASHR', 0, 'Nocicepción: luz, veneno, nariz (ASH)'],
+  ['ASEL', 0, 'Gusto y Δ gradiente (ASE)'], ['ASER', 0, 'Gusto y Δ gradiente (ASE)'],
+  ['AWCL', 0, 'Olfato direccional (AWC)'], ['AWCR', 0, 'Olfato direccional (AWC)'],
+  ['AWAL', 0, 'Olfato (AWA)'], ['AWAR', 0, 'Olfato (AWA)'],
+  ['BAGL', 0, 'Humedad (BAG)'], ['BAGR', 0, 'Humedad (BAG)'],
+  ['PHAL', 0, 'Fásmido aversivo (PHA)'], ['PHAR', 0, 'Fásmido aversivo (PHA)'],
+  ['PHBL', 0, 'Fásmido aversivo (PHB)'], ['PHBR', 0, 'Fásmido aversivo (PHB)'],
+  ['PVDL', 0, 'Tacto brusco (PVD)'], ['PVDR', 0, 'Tacto brusco (PVD)'],
+  ['ALML', 0, 'Tacto suave anterior (ALM)'], ['ALMR', 0, 'Tacto suave anterior (ALM)'],
+  ['PLML', 0, 'Tacto caudal (PLM)'], ['PLMR', 0, 'Tacto caudal (PLM)'],
+  ['ADFL', 0, 'Hambre interna (ADF)'], ['ADFR', 0, 'Hambre interna (ADF)'],
+  ['ADLL', 0, 'Feromona (ADL)'], ['ADLR', 0, 'Feromona (ADL)'],
+  ['FLPL', 0, 'Mecanorreceptor nasal (FLP)'], ['FLPR', 0, 'Mecanorreceptor nasal (FLP)'],
+  ['OLQDL', 0, 'Mecanorreceptor nasal (OLQ)'], ['OLQDR', 0, 'Mecanorreceptor nasal (OLQ)'],
+  // Comando / integración (carril 1)
+  ['AVAL', 1, 'Comando A: reversa'], ['AVAR', 1, 'Comando A: reversa'],
+  ['AVBL', 1, 'Comando B: avance'], ['AVBR', 1, 'Comando B: avance'],
+  ['AVDL', 1, 'Comando A: reversa'], ['AVDR', 1, 'Comando A: reversa'],
+  ['AVEL', 1, 'Comando A: reversa'], ['AVER', 1, 'Comando A: reversa'],
+  ['PVCL', 1, 'Comando B: avance'], ['PVCR', 1, 'Comando B: avance'],
+  ['AIBL', 1, 'Puente quimiotaxis→motor'], ['AIBR', 1, 'Puente quimiotaxis→motor'],
+  ['RIML', 1, 'Estado de excitación'], ['RIMR', 1, 'Estado de excitación'],
+  ['RIAL', 1, 'Puente sensoriomotor (klinotaxis)'], ['RIAR', 1, 'Puente sensoriomotor (klinotaxis)'],
+  // Premotoras (carril 2)
+  ['DVA', 2, 'Propiocepción corporal (TRP-4)'],
+  ['HSNL', 2, 'Puesta de huevos (HSN)'], ['HSNR', 2, 'Puesta de huevos (HSN)'],
+  ['RMDDL', 2, 'Cabeza dorsal (RMD)'], ['RMDDR', 2, 'Cabeza dorsal (RMD)'],
+  ['RMDVL', 2, 'Cabeza ventral (RMD)'], ['RMDVR', 2, 'Cabeza ventral (RMD)'],
+]
+
+let CIRCUIT: CircuitViewDef | null = null
+
+/** Subgrafo sensoriomotor para la vista "Circuito vivo" del inspector. */
+export function getElegansCircuit(): CircuitViewDef {
+  if (CIRCUIT) return CIRCUIT
+  const g = getGraph()
+  const nodes: CircuitNodeDef[] = []
+  const idx2node = new Map<number, number>() // índice global → posición en nodes
+  for (const [name, lane, role] of CIRCUIT_NODE_DEFS) {
+    const i = idxOf(name)
+    if (i < 0) continue
+    idx2node.set(i, nodes.length)
+    nodes.push({ i, n: name, c: ELEGANS_CLASSES[i], lane, role })
+  }
+  // Aristas químicas reales entre nodos seleccionados: srcOff marca el
+  // rango de cada fuente; recorremos por fuente.
+  const seen = new Set<string>()
+  const edges: CircuitEdgeDef[] = []
+  for (let src = 0; src < g.n; src++) {
+    const na = idx2node.get(src)
+    if (na === undefined) continue
+    for (let e = g.srcOff[src]; e < g.srcOff[src + 1]; e++) {
+      const nb = idx2node.get(g.dst[e])
+      if (nb === undefined) continue
+      const key = `${src}>${g.dst[e]}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      edges.push({ a: na, b: nb, w: g.w[e], kind: 'chem' })
+    }
+  }
+  for (let k = 0; k < g.gapA.length; k++) {
+    const na = idx2node.get(g.gapA[k])
+    const nb = idx2node.get(g.gapB[k])
+    if (na === undefined || nb === undefined) continue
+    const key = `g${g.gapA[k]}-${g.gapB[k]}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    edges.push({ a: na, b: nb, w: g.gapW[k], kind: 'gap' })
+  }
+  // Haces comando → pool motor (peso agregado de aristas reales).
+  const POOL_KEYS = ['forward', 'backward', 'head', 'egg'] as const
+  const poolMembers: Record<string, Set<number>> = {}
+  for (const key of ['forward', 'backward', 'headDorsal', 'headVentral', 'egg']) {
+    poolMembers[key] = new Set<number>()
+    for (const m of g.pool[key as keyof typeof g.pool]) poolMembers[key].add(m)
+  }
+  const bundles: CircuitBundleDef[] = []
+  for (const node of nodes) {
+    if (node.lane !== 1) continue
+    for (const pkey of POOL_KEYS) {
+      const members = pkey === 'head'
+        ? new Set([...poolMembers.headDorsal, ...poolMembers.headVentral])
+        : poolMembers[pkey]
+      let w = 0
+      for (let e = g.srcOff[node.i]; e < g.srcOff[node.i + 1]; e++) {
+        if (members.has(g.dst[e])) w += Math.abs(g.w[e])
+      }
+      if (w > 0.12) bundles.push({ from: idx2node.get(node.i)!, pool: pkey, w: Math.min(2.4, w) })
+    }
+  }
+  CIRCUIT = { nodes, edges, bundles, pools: g.pool }
+  return CIRCUIT
 }

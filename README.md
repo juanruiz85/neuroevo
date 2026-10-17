@@ -19,6 +19,7 @@ directamente en tu navegador.
 
 [🧠 Arquitectura](docs/ARQUITECTURA.md) ·
 [🪱 Conectoma C. elegans](docs/CONNECTOMA-C-ELEGANS.md) ·
+[🔬 Sentidos, ciclo de vida y reproducción](docs/SENSORES-CICLO-REPRODUCCION.md) ·
 [🛠️ Cómo se creó](docs/DESARROLLO.md) ·
 [📜 Changelog](CHANGELOG.md) ·
 [📓 Bitácora de trabajo](docs/worklog.md)
@@ -44,8 +45,8 @@ observar (y documentar) cómo evoluciona cada especie para adaptarse.
 
 - 🪱 **Cerebro biológico real**: los gusanos simulan el **conectoma de
   *C. elegans*** — 300 neuronas y 4.731 sinapsis reales de OpenWorm bajo un
-  modelo LIF, con AFD sintiendo la temperatura, ASH el veneno y el circuito
-  VC+HSN decidiendo la puesta.
+  modelo LIF, con **17 sentidos** mapeados a neuronas reales (AFD termo, ASE
+  gusto, ASH luz/nariz, PLM cola, DVA propiocepción, ADL feromona…).
 - 🪰 **Redes neuronales evolutivas**: las moscas usan una ANN 12 → 8 → 3 con
   131 pesos sinápticos que se heredan y mutan (control experimental de la
   Fase 2: el conectoma de *Drosophila*).
@@ -56,32 +57,46 @@ observar (y documentar) cómo evoluciona cada especie para adaptarse.
   adormecen — Q10 en los gusanos), el calor quema energía, la lluvia genera
   comida para los gusanos y la noche ciega a las moscas.
 - 🧬 **Evolución medible**: en los gusanos la selección natural ajusta la
-  neuromodulación del conectoma (20 genes: ganancias sensoriales, escalas
-  ACh/GABA/Glu, τ, umbral…); en las moscas, los 131 pesos de su ANN.
+  neuromodulación del conectoma (25 genes: ganancias de los 17 sentidos,
+  escalas ACh/GABA/Glu, τ, umbral…); en las moscas, los 131 pesos de su ANN.
   Generaciones, linajes y gráficas de población y genética.
+- 🧬 **Ciclo de vida real**: huevo → L1 → L2 → L3 → L4 → adulto con
+  duraciones del nematodo (1 s ≈ 1 h a 20 °C), desarrollo con Q10
+  térmica, larvas que crecen de verdad y senescencia adulta. Con hambruna,
+  las larvas forman la fase **dauer** de supervivencia (boca sellada,
+  metabolismo 5 %) y reviven al oler comida.
+- 🥚 **Reproducción 100 % neural**: los hermafroditas autofecundados maduran
+  huevos con energía y esperma limitado, la **feromona de conglomerado**
+  frena la puesta con multitud y **solo el circuito real HSN+VC** deposita
+  los huevos en el mundo, que incuba y eclosionan como L1. Ningún gusano
+  aparece por programación.
 - 🔬 **Inspector neuronal**: haz clic en cualquier criatura y observa su
-  cerebro iluminándose en tiempo real — anillo del conectoma (picos LIF) en
-  gusanos, red 12→8→3 en moscas.
+  cerebro en vivo — la nueva vista **"Circuito vivo"** (sentidos → comando →
+  pools motores con las sinapsis reales animadas, partículas y estado
+  conductual), el anillo del conectoma y los **sentidos dibujados sobre el
+  propio gusano** (olfato, fotofobia, tacto, propiocepción, feromona).
 - 🏛️ **Museo de la Evolución** (con base de datos): guarda las élites
   evolucionadas y siémbralas en simulaciones futuras.
 - ⚡ **Rendimiento**: motor desacoplado de React a 30 ticks/s (hasta ×8 de
-  velocidad) — ~1.2 ms/tick incluso con 60 conectomas de 300 neuronas.
+  velocidad) — ~1.3 ms/tick incluso con 65 conectomas de 300 neuronas y su
+  ciclo de vida completo.
 
 ## 🖥️ La interfaz
 
 | | |
 |---|---|
-| ![Conectoma de C. elegans en vivo](docs/screenshots/conectoma-elegans.png) | ![Inspector de una mosca](docs/screenshots/inspector-neuronal.png) |
-| **Inspector · gusano**: anillo del conectoma real de *C. elegans* — 300 neuronas LIF en 3 clases (ámbar sensoriales, gris interneuronas, esmeralda motoras), destellos blancos por disparo y salidas motoras | **Inspector · mosca**: red clásica 12→8→3 con aristas verdes/rojas por peso — el control experimental para la Fase 2 (*Drosophila*) |
-| ![Estadísticas](docs/screenshots/estadisticas.png) | ![Vista móvil](docs/screenshots/movil.png) |
-| **Datos**: KPIs y evolución de poblaciones, velocidad y generaciones | **4 pestañas** (Ambiente, Inspector, Datos, Museo) · diseño responsivo con tema claro/oscuro |
+| ![Circuito vivo del conectoma](docs/screenshots/circuito-vivo.png) | ![Conectoma en anillo](docs/screenshots/conectoma-elegans.png) |
+| **Inspector · Circuito vivo** (nuevo): sentidos → neuronas → comando → pools → acción, con las sinapsis reales animadas y el estado conductual | **Inspector · Anillo**: 300 neuronas LIF en 3 clases (ámbar sensoriales, gris interneuronas, esmeralda motoras) |
+| ![Inspector de una mosca](docs/screenshots/inspector-neuronal.png) | ![Estadísticas](docs/screenshots/estadisticas.png) |
+| **Inspector · mosca**: red clásica 12→8→3 (control experimental) | **Datos**: KPIs, poblaciones (con línea de huevos) y generaciones |
 
 ## 🧠 Cómo funciona la simulación
 
 Cada criatura siente y decide **30 veces por segundo**. Desde v1.1.0 conviven
-dos arquitecturas cerebrales en el ecosistema:
+dos arquitecturas cerebrales en el ecosistema y desde v1.2.0 los gusanos
+viven su biología completa.
 
-### 🪱 El gusano: conectoma real de *C. elegans* (Fase 1)
+### 🪱 El gusano: conectoma real de *C. elegans* (Fase 1 + vida real)
 
 Las **300 neuronas y 4.731 sinapsis** del hermafrodita (dataset de
 [OpenWorm](https://github.com/openworm/CElegansNeuroML), 55 KB embebidos en la
@@ -93,15 +108,28 @@ conducta emerge de los pools motores:
 |---|---|
 | Temperatura → **AFD** (el termosensor real) + AWC | Avanzar ← VB/DB + AVB (pool B de avance) |
 | Comida → ASE (gusto), AWC/AWA (olfato) | Girar ← asimetría dorso-ventral RMD/SM/SMB |
-| Veneno → ASH (nocicepción), PHA/PHB | Reversa ← VA/DA + AVA (pool A: al retroceder re-orienta) |
-| Humedad → BAG · Multitud → PVD/ALM · Hambre → ADF | Reproducirse ← VC + HSN (circuito real de puesta) |
+| Tacto de nariz → **ASH/FLP** → AVA (circuito real) | Reversa ← VA/DA + AVA (pool A: al retroceder re-orienta) |
+| Tacto de cola → **PLM** → PVC (reflejo real) | Reproducirse ← VC + HSN (circuito real de puesta) |
+| Humedad → BAG · Hambre → ADF/HSN · Feromona → ADL | |
+| Propiocepción → **DVA** · Δ gradiente → ASE (klinotaxis) | |
+
+- **17 sentidos** en total (5 compartidos con nada: exclusivos del gusano),
+  cada uno con su ganancia sensorial heredable. Detalle completo en
+  [docs/SENSORES-CICLO-REPRODUCCION.md](docs/SENSORES-CICLO-REPRODUCCION.md).
+- **Ciclo de vida**: huevo (12 s) → L1 → L2 → L3 → L4 (10-12 s cada una,
+  ×Q10 con la temperatura) → adulto (~300 s de senescencia). Las larvas son
+  de verdad más pequeñas, lentas y miopes. Hambruna en L2/L3 → **dauer**.
+- **Reproducción neural**: maduración de huevos por energía y esperma
+  limitado, frenada por feromona de conglomerado, y puesta **solo** cuando
+  dispara el circuito HSN+VC. Los huevos eclosionan como L1 con vitelo.
 
 - Sinapsis químicas con signo según el neurotransmisor presináptico (GABA
   inhibitorio) y uniones en gap con difusión de potencial + transmisión de
   picos (así comandan AVA/AVB a los pools motores).
 - El algoritmo genético **no toca la estructura sináptica** — es biología.
-  Evoluciona la **neuromodulación**: 20 genes (ganancias sensoriales, escalas
-  ACh/Glu/GABA/monoaminas, τ de fuga, umbral, refractario, impulso tónico).
+  Evoluciona la **neuromodulación**: 25 genes (ganancias de los 17 sentidos,
+  escalas ACh/Glu/GABA/monoaminas, τ de fuga, umbral, refractario, impulso
+  tónico).
 - Con frío extremo, el coeficiente **Q10** debilita la entrega sináptica: el
   nemátodo se vuelve letárgico y torpe, como el real.
 
@@ -128,12 +156,13 @@ conducta emerge de los pools motores:
 
 ### Genética y evolución
 
-- Si una criatura acumula energía y su impulso reproductivo se activa, tiene
-  una cría que hereda su cerebro mutado: en las **moscas** los 131 pesos de la
-  ANN (10 % de genes con ruido gaussiano); en los **gusanos** los 20 genes de
-  neuromodulación del conectoma.
-- También heredan (y mutan) dos **rasgos físicos**: velocidad máxima y rango
-  sensorial — verás linajes de corredores veloces y otros de grandes ojos.
+- **Moscas**: cuando acumulan energía y su impulso reproductivo se activa,
+  tienen una cría directa que hereda los **131 pesos** de su ANN mutados.
+- **Gusanos**: la reproducción es la cadena real — huevos internos con
+  energía y esperma limitado, feromona frenando la puesta, y el circuito
+  **HSN+VC** decidiendo cuándo depositarlos. Cada huevo ya contiene el
+  cerebro clonado+mutado (25 genes de neuromodulación) y los rasgos
+  heredables (velocidad y visión mutables).
 - La aptitud de cada individuo (comidas + hijos + longevidad) decide quién
   entra en el Museo de la Evolución.
 - Al morir, los cadáveres se reciclan como detritos: la energía nunca
@@ -258,7 +287,15 @@ Cómo funciona:
    calor* las moscas colapsan. ¿Cuántas generaciones tardan en adaptarse?
 5. **Fósiles vivientes**: guarda élites de generaciones tempranas y compáralas
    con las tardías sembrando ambas en el mismo mundo.
-6. **Biología vs. azar**: compara el inspector de un gusano (picos/tick y
+6. **Hambruna y dauer**: baja la comida a 0.1× y espera: los gusanos colapsan
+   a larvas **dauer** (las verás quietas y grises con badge violeta). Sube la
+   comida de nuevo y observa cómo el olor de los detritos las despierta y la
+   población resucita desde sus huevos.
+7. **Caza de circuitos**: sigue un gusano en el inspector con la vista
+   "Circuito vivo" y espera a que toque una pared con la nariz: verás
+   disparar ASH → AVA → VA/DA y el badge cambiar a REVERSA. Tócalo de
+   atrás (con la multitud) y verás PLM → PVC acelerando el avance.
+8. **Biología vs. azar**: compara el inspector de un gusano (picos/tick y
    actividad media del conectoma LIF) con el de una mosca (ANN). ¿Qué cerebro
    coloniza antes un mundo nuevo: 300 neuronas reales o 131 pesos evolucionados?
 
@@ -268,6 +305,7 @@ Cómo funciona:
 |---|---|
 | [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) | Especificación técnica: red neuronal, modelo de energía, clima, grilla espacial, renderer, integración con React, modelo de datos. |
 | [docs/CONNECTOMA-C-ELEGANS.md](docs/CONNECTOMA-C-ELEGANS.md) | Fase 1: conectoma real de *C. elegans* — dataset OpenWorm, modelo LIF, mapeos sensoriales/motores, genoma de neuromodulación. |
+| [docs/SENSORES-CICLO-REPRODUCCION.md](docs/SENSORES-CICLO-REPRODUCCION.md) | v1.2: los 17 sentidos del gusano, ciclo de vida (huevo→L1→…→adulto, dauer) y reproducción real por circuito HSN+VC. |
 | [docs/FASE-2-DROSOPHILA.md](docs/FASE-2-DROSOPHILA.md) | Fase 2 (hoja de ruta): conectoma de *Drosophila* — Janelia MaleCNS, FlyWire/neuPrint, reducción offline con neuprint-python. |
 | [docs/DESARROLLO.md](docs/DESARROLLO.md) | Cómo se creó el proyecto: proceso multiagente, decisiones de diseño y verificación E2E. |
 | [docs/worklog.md](docs/worklog.md) | Bitácora de trabajo cruda, tarea por tarea. |

@@ -5,6 +5,64 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.2.0] — 2026-10-17
+
+Los gusanos viven su biología completa: 17 sentidos reales, ciclo de vida
+con fases y dauer, y reproducción 100 % neural por puesta de huevos.
+Nueva vista cerebral "Circuito vivo".
+
+### Añadido
+- **17 canales sensoriales** mapeados a neuronas reales (antes 12): tacto
+  cefálico → ASH+FLP+OLQ (circuito real de choque frontal → reversa),
+  tacto caudal → PLM (reflejo PLM→PVC→VB/DB de acelerón), propiocepción
+  con signo → DVA+SMDD (TRP-4), derivada del gradiente de comida → ASE
+  (klinotaxis adaptativa) y feromona de conglomerado → ADL (ascarósidos).
+  El canal de saciedad ahora también excita HSN (tono reproductivo
+  análogo a la serotonina de NSM).
+- **Ciclo de vida real de C. elegans** (escala 1 s ≈ 1 h a 20 °C): huevo
+  incubando en el mundo → L1 → L2 → L3 → L4 → adulto; desarrollo con
+  Q10 ≈ 2 según temperatura; larvas progresivamente más grandes, rápidas
+  y sensibles; senescencia adulta ~300 s ± 20 % (acelerada por calor).
+- **Fase dauer**: hambre sostenida en L2/L3 → larva de resistencia (boca
+  sellada, no come, metabolismo 5 %, no envejece, casi inmóvil); sale
+  como L4 al oler comida durante 2.5 s.
+- **Reproducción real por puesta**: hermafroditas autofecundados con
+  esperma limitado (140) y hasta 8 huevos maduros por útero; la maduración
+  cuesta energía y la frena la feromona de conglomerado; la puesta solo
+  ocurre cuando el circuito real HSN+VC dispara (salida "Reproducir"),
+  en ráfagas separadas 1.4 s, por la vulva del cuerpo. Los huevos son
+  objetos del mundo que se retuercen antes de eclosionar como L1 con
+  vitelo. Ningún gusano nuevo aparece por programación (las moscas
+  conservan su brote directo como control).
+- **Vista "Circuito vivo"** en el inspector (nueva, por defecto en
+  gusanos): riel con los 16 sentidos en vivo, neuronas sensoriales →
+  comando → premotoras con las **sinapsis reales del subgrafo** (450
+  aristas), pools motores con su tasa, salidas, partículas animadas por
+  las aristas activas y badge de **estado conductual** (AVANZANDO /
+  GIRANDO / REVERSA / PONIENDO HUEVO) con el circuito responsable. El
+  anillo clásico queda como segunda pestaña.
+- **"Sentidos en vivo"**: tira DOM accesible con los 17 canales, sus
+  neuronas reales y valores al instante, agrupados por modalidad.
+- **Sentidos dibujados sobre el gusano seleccionado** en el mapa: línea
+  punteada hacia la comida con ondas quimiosensoriales, rayos de
+  fotofobia, chispas de tacto nariz/cola, arco de propiocepción, aura de
+  feromona, badge de fase y ráfaga dorada al poner un huevo.
+- HUD con chip de **huevos** y línea de huevos en la gráfica de
+  población; larvas escaladas y dauers con estilo propio en el mapa.
+- Documento nuevo **docs/SENSORES-CICLO-REPRODUCCION.md** (respondiendo
+  con detalle: vida, ciclo, reproducción, dauer, balance y
+  simplificaciones honestas).
+
+### Cambiado
+- Genoma del conectoma: 20 → **25 genes** (17 ganancias sensoriales).
+  Los registros del Museo con genoma v1.1 (20 floats) se **migran
+  automáticamente** al cargarlos.
+- Ficha del inspector de gusanos: barra de edad sustituida por **fase del
+  ciclo de vida** con progreso; stats de huevos puestos/maduros, esperma
+  y feromona.
+- Balance verificado headless (900 s): 55-80 gusanos, 147 reproductores
+  distintos por circuito neural, generación 31, 1.3 ms/tick.
+
 ## [1.1.1] — 2026-10-17
 
 Mantenimiento de documentación y un ajuste visual del inspector.

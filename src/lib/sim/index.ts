@@ -25,7 +25,21 @@ export {
   ELEGANS_NAMES,
   ELEGANS_CLASSES,
   ELEGANS_SENSORY_FUNCTIONS,
+  getElegansCircuit,
+  type CircuitViewDef,
+  type CircuitNodeDef,
+  type CircuitEdgeDef,
+  type CircuitBundleDef,
 } from './connectome/elegans'
+export {
+  CH,
+  NN_CHANNELS,
+  SENSOR_CHANNELS,
+  SENSOR_GROUP_LABEL,
+  SENSOR_GROUP_COLOR,
+  type SensorChannel,
+  type SensorGroup,
+} from './connectome/sensors'
 export { Rng } from './rng'
 export {
   renderWorld,

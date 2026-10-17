@@ -438,3 +438,173 @@ Stage Summary:
   9/10 + la vieja captura de gusano-ANN sustituida por una mosca.
 - Bug visual real de v1.1.0 corregido (etiquetas motoras cortadas).
 - Publicado como v1.1.1 (tag → workflow → Pages + Release automáticos).
+
+---
+Task ID: 11-a
+Agent: full-stack-developer
+Task: Interfaz de la Task 11 (solo frontend): vista "Circuito vivo"
+del conectoma, tira de 17 sentidos, ficha de ciclo de vida/reproducción
+del gusano, chip HUD y línea de población de huevos.
+
+Work Log:
+- Leído worklog.md completo + contrato de datos verificado en el código:
+  sensors.ts (SENSOR_CHANNELS/CH/colores), elegans.ts (getElegansCircuit:
+  53 nodos 30/16/7 por carril, 450 aristas reales —362 químicas + 88
+  gap—, 36 haces, pools), types.ts (stage/stagePct/eggsLaid/matureEggs/
+  spermLeft/pheromone, StatPoint.eggs, WorldView.counts.eggs). Medido el
+  tamaño real del subgrafo con un script bun antes de maquetar.
+- NUEVO src/components/sim/circuit-view.tsx: canvas 400px con rAF interno
+  (useRef de la última criatura + cancelAnimationFrame en cleanup) que
+  interpola entre snapshots (~220 ms): destellos de disparo (decay 420 ms),
+  potenciales suavizados exponencialmente (τ=110 ms) y pool de partículas
+  reutilizable (tope 140, nacimiento con desfase determinista por arista,
+  viaje a→b en 420 ms por la misma bézier de la arista). Layout: riel de
+  16 sensores a la izquierda (punto de grupo + short + neuronas mono 7px +
+  barra; canales con signo centrados rosa/esmeralda, resto 0..1 con color
+  de grupo), columnas A sensoriales (ámbar) / B comando con etiqueta
+  (pizarra) / C premotoras con etiqueta (esmeralda) / D 4 chips de pool
+  (VB/DB·Avance ← hidden[3], VA/DA·Reversa ← hidden[4], RMD/SM·Cabeza ←
+  % de s sobre headDorsal+headVentral, VC/HSN·Puesta ← hidden[6], cada uno
+  con barra de tasa y borde que se aviva) / E salidas Girar·Avanzar·
+  Reproducir con valor. Aristas reales tenues (alfa 0.05-0.14 por |w|,
+  rosa GABA / verde, gap punteado) que se iluminan + emiten partículas
+  cuando la presináptica disparó; haces comando→pool con grosor por w y
+  brillo por actividad; conectores pool→salida (reversa punteada).
+  Insignia de estado conductual en vivo (PONIENDO HUEVO dorado con anillo
+  expansivo sobre el chip de puesta / REVERSA / GIRANDO izq-der /
+  AVANZANDO / QUIETO) + línea con el circuito responsable (HSN+VC →
+  vulva, ASH/AVA → VA/DA, AVB/PVC → VB/DB...). DPR≤2, ancho=parent con
+  mínimo 280, modo compacto <210px de red con cabeceras y chips reducidos.
+- NUEVO src/components/sim/sensor-strip.tsx: "Sentidos en vivo" en DOM
+  accesible (role list/group/listitem, tooltip nativo title=desc), 17
+  canales agrupados Motor/Interno/Químico/Físico/Social con cabecita de
+  color, filas punto+short+neuronas mono+barra (misma semántica de signo)
+  +valor numérico; tónico al final del grupo Motor con barra completa
+  atenuada y valor "ref"; max-h-72 overflow-y-auto + nice-scroll.
+- brain-view.tsx: BrainView ahora es un conmutador — moscas intactas
+  (AnnCanvas); gusanos con Tabs shadcn [Circuito vivo (default) | Anillo],
+  el anillo existente (drawConnectome) queda intacto como RingCanvas en la
+  segunda pestaña.
+- inspector-panel.tsx: para gusanos la barra "Edad" se sustituye por
+  WormStageBar (insignia de fase L1-L4 esmeralda / Adulto ámbar / Dauer
+  violeta + barra de progreso stagePct + nota "hacia L4" / "de ~300s de
+  vida" / "supervivencia"; salvaguarda con barra de edad si faltan datos).
+  Stats nuevos con el componente Stat: Huevos puestos (Egg), Huevos
+  maduros (Hourglass, "en útero"), Esperma (Dna, de 140), Feromona (Wind,
+  %), Resistencia dauer (Shield, 100-stagePct) solo en dauer. Card del
+  cerebro: título "Cerebro biológico en vivo" (ya existía), descripción
+  reescrita mencionando las dos vistas, SensorStrip sobre el BrainView
+  dentro de la misma card y key={brainKind} para volver a "Circuito vivo"
+  al cambiar de arquitectura cerebral.
+- page.tsx: chip HUD "Huevos" (icono Egg, ámbar) junto a Moscas/Gusanos,
+  mismo patrón icono+número.
+- stats-panel.tsx: línea "Huevos" (#fbbf24, strokeDasharray "4 3") en la
+  gráfica de población con stats[].eggs; Series.dash opcional añadido;
+  descripción actualizada. No hay leyenda en ChartCard: el nombre entra
+  por el tooltip de recharts (como Moscas/Gusanos).
+- Corregidos 2 errores TS propios (Set<2|5|6|...> inferido literal al
+  usar CH como const → SIGNED: ReadonlySet<number>).
+
+Stage Summary:
+- La vista "Circuito vivo" responde al pedido del usuario: se ve QUÉ red
+  se activa al actuar (sentidos→comando→pools→salidas) con aristas reales
+  del subgrafo, partículas y estado conductual; el anillo queda como
+  segunda pestaña y las moscas intactas.
+- bun run lint: 0 errores. bunx tsc --noEmit: src/ limpio (solo errores
+  preexistentes de skills/, fuera de alcance). GET / 200 y dev.log sin
+  errores de compilación tras los cambios.
+- NO se tocó nada de src/lib/sim/**, src/app/api/** ni prisma/**.
+- Decisión tomada: dirección del giro (outputs[0] > 0 → "derecha")
+  derivada del convenio heading+=... con y del canvas hacia abajo
+  (horario = derecha); si el render lo invierte, es un cambio de 1 línea
+  en behaviorOf.
+- Pendiente del agente principal: E2E del inspector con un gusano vivo
+  (selección, pestañas, partículas a 60 fps, dauer/adulto, HUD huevos).
+
+---
+Task ID: 11
+Agent: main (Z.ai Code)
+Task: Biología v1.2 completa del gusano: nueva visualización cerebral
+"otra forma" (el usuario no apreciaba las redes en el anillo), máximo de
+sensores entre cerebro y gusano en pantalla, ciclo de vida real, y
+reproducción por impulsos neurales reales (no programada). Documentación
+detallada de todo.
+
+Work Log:
+- Contrato de datos (yo, antes de lanzar el subagente 11-a):
+  - NUEVO src/lib/sim/connectome/sensors.ts: metadatos de los 17 canales
+    (key/label/short/neurons/group/desc) + constantes CH + colores de
+    grupo. Motor y UI comparten esta única fuente de verdad.
+  - types.ts: WormStage, WORM_LIFE (12/12/10/10/10 s + adulto 300 s,
+    Q10≈2), WORM_STAGE_DRAIN/SCALE, CreatureView con
+    stage/stagePct/adultAge/eggsLaid/matureEggs/spermLeft/pheromone,
+    counts.eggs y StatPoint.eggs.
+  - elegans.ts: mapa sensorial 12→17 canales (nariz ASH+FLP+OLQ, cola
+    PLM, propiocepción DVA+SMDD, Δgradiente ASE, feromona ADL; saciedad
+    ahora también excita HSN como la 5HT de NSM). Genoma 20→25 genes con
+    migrateGenome() para los registros v1.1 del Museo. Export
+    getElegansCircuit(): subgrafo de 53 nodos / 450 aristas reales +
+    haces comando→pool para la nueva vista.
+- Motor biológico:
+  - creature.ts reescrito: sensores de fase (tacto nariz/cola contra
+    bordes y cuerpos, decaen exp(-6t)), propiocepción con signo, Δ del
+    gradiente (klinotaxis), feromona; fases L1→adulto con Q10, mudas con
+    coste, dauer (entrada por hambre L2/L3, salida olfateando comida,
+    sin comer ni envejecer, tope 320 s), senescencia (300 s ± 20 %,
+    acelerada por calor >26 °C), maduración de huevos internos (16 E,
+    esperma 140, máx 8 en útero, frenada ×0.25 por feromona) y PUESTA
+    SOLO por oA[2]>0.5 del circuito HSN+VC (cooldown 1.4 s). Las moscas
+    quedan intactas como control (12 canales, brote directo).
+  - world.ts: clase WormEgg (objeto del mundo con cerebro
+    clonado+mutado en la puesta — la meiosis), incubación ×Q10,
+    eclosión como L1 con 24 E de vitelo, tope 48 s; layEgg() desde la
+    vulva (segs[3]) con ráfaga dorada; spawnChild solo moscas;
+    wormPheromone() (densidad 70 px); countNeighbors 'any'.
+  - render.ts: huevos crema que se retuercen al madurar, larvas
+    escaladas por fase, dauer gris, overlay de sentidos sobre el gusano
+    seleccionado (línea+ondas de olfato, rayos de fotofobia, chispas
+    nariz/cola, arco de propiocepción, aura de feromona, badge de fase),
+    ráfaga dorada de puesta.
+- Balance headless (/tmp→/home/z, 900 s): población 55-80 gusanos
+  estable, huevos 1-9 simultáneos, dauers 1-9, 147 gusanos distintos
+  pusieron huevos SOLO por circuito neural, G31 en 15 min, 1.3 ms/tick.
+- Test headless de retrocompatibilidad: genoma v1.1 (20 floats) migra a
+  25 conservando τ/tónica y ganancias nuevas=1; seedFromRecord siembra
+  8 conectomas; 300 ticks sin errores.
+- Documentación: NUEVO docs/SENSORES-CICLO-REPRODUCCION.md (respuestas
+  directas a las preguntas del usuario + tabla de 17 sentidos + ciclo +
+  dauer + reproducción + simplificaciones honestas); CONNECTOMA
+  actualizado (17 canales, 25 genes, rendimiento); README v1.2.0
+  (características, tabla interfaz con captura nueva, "Cómo funciona",
+  genética dual, experimentos 6-8 nuevos, doc nueva enlazada);
+  CHANGELOG 1.2.0; package.json 1.2.0; ARQUITECTURA §4bis + secciones
+  3/7/8/9 actualizadas.
+- E2E con agent-browser + VLM:
+  - 0 page errors / 0 console errors en toda la sesión.
+  - HUD: Día 16 · Gusanos 65 · Huevos 8 · G33 (reproducción viva por
+    huevos en el navegador).
+  - Vista "Circuito vivo" (VLM 9/10): riel de sensores con barras,
+    columnas ámbar/gris/esmeralda, pools VB/DB·VA/DA·RMD/SM·VC/HSN,
+    salidas con valores, aristas con partículas y badge dorado
+    "PONIENDO HUEVO (HSN+VC — vulva)" capturado EN VIVO. Captura
+    guardada como docs/screenshots/circuito-vivo.png.
+  - Anillo intacto como 2ª pestaña (VLM: 3 sectores, etiquetas AFD/ASE/
+    AVA/VB/VC/HSN, salidas completas "Girar -0.02 · Avanzar 0.77 ·
+    Reproducir 0.94").
+  - Ficha: badge "Adulto · de ~300s de vida" + stats HUEVOS PUESTOS/
+    MADUROS/ESPERMA/FEROMONA; "SENTIDOS EN VIVO" con 17 canales.
+  - Moscón intacto (ANN 12→8→3, Edad 15s/110s). Móvil 375×812 sin
+    overflow horizontal. Truco heredado: pausar antes de seguir un
+    gusano (a ×8 mueren antes de la captura).
+- lint 0 errores · tsc 0 errores en src/ · dev.log limpio · GET / 200.
+
+Stage Summary:
+- El cerebro biológico tiene DOS vistas: "Circuito vivo" (por defecto;
+  el flujo sentido→neurona→comando→pool→acción con sinapsis reales
+  animadas y estado conductual) y "Anillo". Los sentidos se ven en el
+  inspector Y sobre el gusano en el mapa.
+- El gusano vive su ciclo real (huevo→L1→L2→L3→L4→adulto, dauer) y se
+  reproduce SOLO cuando su conectoma dispara HSN+VC; los nuevos
+  gusanos nacen exclusivamente de huevos incubados en el mundo.
+- v1.2.0 lista para publicar: falta push (sin token disponible; tag
+  v1.2.0 + push → Pages + Release automáticos).

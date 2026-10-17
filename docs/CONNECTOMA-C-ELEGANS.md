@@ -61,14 +61,18 @@ para cada gap (a,b):
   equivalente del coeficiente **Q10** térmico: el nemátodo real se vuelve
   torpe y letárgico bajo 10 °C.
 
-## 3. Mapeo sensorial (12 canales del mundo → neuronas reales)
+## 3. Mapeo sensorial (17 canales del mundo → neuronas reales)
+
+Los 5 últimos canales son nuevos en v1.2.0 (los primeros 12 los comparte
+con la ANN de las moscas). Detalle completo con interpretación biológica
+en [SENSORES-CICLO-REPRODUCCION.md](./SENSORES-CICLO-REPRODUCCION.md).
 
 | Canal del mundo | Neurona(s) del conectoma | Justificación biológica |
 |---|---|---|
 | Sesgo / tónico | AVB (comando B) + RMDD/RMDV (cabeza) | Impulso endógeno tipo CPG: exploración de base |
-| Energía (hambre = 1−E) | ADF + ASE | ADF integra el estado interno de alimentación |
+| Energía (hambre = 1−E) | ADF + ASE + **HSN** | ADF integra el estado interno; HSN recibe el tono de saciedad (análogo 5HT/NSM) |
 | **Térmico (con signo)** | **AFD (primario)** + AWC (secundario) | AFD es EL termosensor de *C. elegans* (respuesta ON/OFF a gradientes) |
-| Luz | ASH | Fotofobia: el animal evita la luz vía nocicepción |
+| Luz | ASH | Fotofobia vía LITE-1: el animal evita la luz |
 | Humedad | BAG | Sensor ambiental (CO₂/O₂ en el animal) |
 | Comida X (cos) | AWC^L / −AWC^R | Asimetría quimiosensorial contralateral real |
 | Comida Y (sin) | AWA^L / −AWA^R | Ídem (olfato) |
@@ -76,6 +80,11 @@ para cada gap (a,b):
 | Veneno X/Y | PHA / PHB | Fásmidos: quimiorrecepción aversiva posterior |
 | Veneno cercanía | ASH (fuerte) | Nociceptor polimodal (osmótico/mecánico/olfativo) |
 | Multitud | PVD + ALM | Tacto brusco/nocicepción mecánica + tacto suave |
+| **Tacto nariz** | **ASH + FLP + OLQ** | Circuito real de "nose touch": ASH→AVA→VA/DA provoca la reversa |
+| **Tacto cola** | **PLM** | Reflejo real: PLM→PVC→VB/DB acelera el avance |
+| **Propiocepción (signo)** | **DVA + SMDD** | TRP-4 en DVA siente el estiramiento del cuerpo |
+| **Δ Gradiente** | **ASE L/R** | ASE se adapta: dispara al CAMBIO de concentración (klinotaxis) |
+| **Feromona** | **ADL** | Ascarósidos de conglomerado: frenan la puesta y provocan dauer |
 
 ## 4. Mapeo motor (pools reales → 3 salidas del Canvas)
 
@@ -85,7 +94,7 @@ para cada gap (a,b):
 | **Girar** | Asimetría **dorso-ventral** de RMD/SM/SMB, amplificada ×2.2 durante reversas | El vaivén cefálico del nemátodo; en reversa (VA/DA/AVA/AVD/AVE) el animal re-orienta |
 | **Reproducir** | VC01-06 + HSN | El circuito real de puesta de huevos |
 
-## 5. Genoma evolutivo (20 genes)
+## 5. Genoma evolutivo (25 genes)
 
 El **algoritmo genético no toca la estructura del conectoma** (es
 biología). La selección natural actúa sobre la **neuromodulación** y la
@@ -93,28 +102,30 @@ biología). La selección natural actúa sobre la **neuromodulación** y la
 
 | Genes | Significado | Rango |
 |---|---|---|
-| 0-11 | Ganancia sensorial por canal | 0.15 - 2.4 |
-| 12-15 | Escala de transmisión ACh / Glu / GABA / monoaminas+neuropéptidos | 0.45 - 1.9 |
-| 16 | Constante de fuga τ | 3.5 - 14 |
-| 17 | Umbral de disparo | 1.0 - 1.8 |
-| 18 | Periodo refractario | 1 - 5 |
-| 19 | Impulso tónico | 0.05 - 0.9 |
+| 0-16 | Ganancia sensorial por canal (17 sentidos) | 0.15 - 2.4 |
+| 17-20 | Escala de transmisión ACh / Glu / GABA / monoaminas+neuropéptidos | 0.45 - 1.9 |
+| 21 | Constante de fuga τ | 3.5 - 14 |
+| 22 | Umbral de disparo | 1.0 - 1.8 |
+| 23 | Periodo refractario | 1 - 5 |
+| 24 | Impulso tónico | 0.05 - 0.9 |
 
-Serialización: el genoma plano vive en `brain.weights` (20 floats) +
+Serialización: el genoma plano vive en `brain.weights` (25 floats) +
 `brain.kind: 'elegans'`, compatible con el Museo de la Evolución (API y
-localStorage). Los registros antiguos de gusanos (131 pesos ANN) se
-siembran como ANN clásica — retrocompatible.
+localStorage). Los registros de gusanos con genoma v1.1 (20 floats) se
+**migran automáticamente** (ganancias nuevas a valor neutro 1); los
+registros antiguos de gusanos (131 pesos ANN) se siembran como ANN
+clásica — retrocompatible en ambas direcciones.
 
 ## 6. Rendimiento
 
 - Grafo compartido (CSR + listas de gap) construido **una vez** por
   sesión; cada gusano solo porta su estado (`V`, picos, refractario) y
   su genoma.
-- **~1.2 ms/tick** para el mundo completo (≈60 gusanos × 300 neuronas +
-  60 moscas ANN) en un hilo del navegador: 3-4 % del presupuesto de
-  frame a 60 FPS.
-- Verificado: 3 min simulados con poblaciones estables (G8, 0 gusanos
-  paralizados, 24 reproductores).
+- **~1.3 ms/tick** para el mundo completo (≈65 gusanos × 300 neuronas +
+  20 moscas ANN, ciclo de vida v1.2 incluido) en un hilo del navegador.
+- Verificado (headless, 900 s simulados): población 55-80 gusanos,
+  147 reproductores distintos por circuito HSN+VC, generación 31,
+  huevos y dauers constantes.
 
 ## 7. Simplificaciones honestas
 

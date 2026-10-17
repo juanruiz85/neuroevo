@@ -43,6 +43,7 @@ const EMPTY_VIEW: WorldView = {
   counts: {
     flies: 0,
     worms: 0,
+    eggs: 0,
     fruit: 0,
     detritus: 0,
     sugar: 0,

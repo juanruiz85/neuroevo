@@ -34,10 +34,13 @@ interface Series {
   key: keyof StatPoint & string
   color: string
   name: string
+  /** Patrón de guiones del trazo (p. ej. huevos). */
+  dash?: string
 }
 
 const FLY_COLOR = '#f59e0b'
 const WORM_COLOR = '#10b981'
+const EGG_COLOR = '#fbbf24'
 
 const tooltipStyle = {
   background: 'var(--popover)',
@@ -89,11 +92,12 @@ export function StatsPanel({ ui, onReintroduce }: Props) {
 
       <ChartCard
         title="Población"
-        description="Moscas vs. gusanos a lo largo del tiempo."
+        description="Moscas, gusanos y huevos puestos a lo largo del tiempo."
         data={ui.stats}
         series={[
           { key: 'flies', color: FLY_COLOR, name: 'Moscas' },
           { key: 'worms', color: WORM_COLOR, name: 'Gusanos' },
+          { key: 'eggs', color: EGG_COLOR, name: 'Huevos', dash: '4 3' },
         ]}
       />
       <ChartCard
@@ -191,6 +195,7 @@ function ChartCard({
                     name={s.name}
                     stroke={s.color}
                     strokeWidth={1.8}
+                    strokeDasharray={s.dash}
                     dot={false}
                     isAnimationActive={false}
                   />

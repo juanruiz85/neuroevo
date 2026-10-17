@@ -7,11 +7,15 @@ import {
   Brain,
   Bug,
   Dna,
+  Egg,
   Gauge,
+  Hourglass,
   Network,
   Radar,
+  Shield,
   Thermometer,
   UtensilsCrossed,
+  Wind,
   Worm,
   X,
   Zap,
@@ -27,11 +31,15 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { BrainView } from '@/components/sim/brain-view'
+import { SensorStrip } from '@/components/sim/sensor-strip'
 import {
   ELEGANS_INFO,
   SPECIES_CONFIG,
+  WORM_LIFE,
+  WORM_STAGE_LABEL,
   type CreatureView,
   type Species,
+  type WormStage,
 } from '@/lib/sim'
 import { cn } from '@/lib/utils'
 
@@ -134,11 +142,15 @@ export function InspectorPanel({ selected, onFollow, onRelease }: Props) {
               pct={energyPct}
               color={energyPct > 50 ? 'bg-emerald-500' : energyPct > 25 ? 'bg-amber-500' : 'bg-rose-500'}
             />
-            <Bar
-              label={`Edad ${Math.round(c.age)}s / ${c.maxAge}s`}
-              pct={agePct}
-              color="bg-emerald-700"
-            />
+            {c.species === 'worm' ? (
+              <WormStageBar c={c} />
+            ) : (
+              <Bar
+                label={`Edad ${Math.round(c.age)}s / ${c.maxAge}s`}
+                pct={agePct}
+                color="bg-emerald-700"
+              />
+            )}
           </div>
 
           <div className="mt-4 grid grid-cols-2 gap-2">
@@ -152,6 +164,22 @@ export function InspectorPanel({ selected, onFollow, onRelease }: Props) {
               <>
                 <Stat icon={Brain} label="Picos / tick" value={`${spikes}/${ELEGANS_INFO.neurons}`} sub="modelo LIF" />
                 <Stat icon={Network} label="Actividad media" value={`${activity}%`} sub={`${ELEGANS_INFO.synapses} sinapsis reales`} />
+              </>
+            )}
+            {c.species === 'worm' && (
+              <>
+                <Stat icon={Egg} label="Huevos puestos" value={`${c.eggsLaid ?? 0}`} sub="en el mundo" />
+                <Stat icon={Hourglass} label="Huevos maduros" value={`${c.matureEggs ?? 0}`} sub="en útero" />
+                <Stat icon={Dna} label="Esperma" value={`${c.spermLeft ?? 0}`} sub={`de ${WORM_LIFE.spermCap}`} />
+                <Stat icon={Wind} label="Feromona" value={`${Math.round((c.pheromone ?? 0) * 100)}%`} sub="ascarósidos" />
+                {c.stage === 'dauer' && (
+                  <Stat
+                    icon={Shield}
+                    label="Resistencia dauer"
+                    value={`${Math.round((1 - Math.max(0, Math.min(1, c.stagePct ?? 0))) * 100)}%`}
+                    sub="reservas lipídicas"
+                  />
+                )}
               </>
             )}
           </div>
@@ -171,12 +199,13 @@ export function InspectorPanel({ selected, onFollow, onRelease }: Props) {
           </CardTitle>
           <CardDescription className="text-[11px]">
             {isElegans
-              ? `Conectoma real de C. elegans: ${ELEGANS_INFO.neurons} neuronas y ${ELEGANS_INFO.synapses.toLocaleString('es')} sinapsis bajo un modelo LIF. Ámbar = sensoriales, gris = interneuronas, esmeralda = motoras; el destello blanco es un pico de disparo.`
+              ? `Conectoma real de C. elegans: ${ELEGANS_INFO.neurons} neuronas y ${ELEGANS_INFO.synapses.toLocaleString('es')} sinapsis bajo un modelo LIF. Dos vistas: «Circuito vivo» sigue el flujo de los 17 sentidos hacia los pools motores, y «Anillo» muestra las 300 neuronas por clase.`
               : '12 sensores → 8 neuronas → 3 motores. Verde = excitación, rojo = inhibición; el grosor es la fuerza sináptica.'}
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <BrainView creature={c} />
+        <CardContent className="space-y-3">
+          {c.brainKind === 'elegans' && <SensorStrip creature={c} />}
+          <BrainView key={c.brainKind} creature={c} />
         </CardContent>
       </Card>
     </div>
@@ -201,6 +230,68 @@ function Bar({
       <div className="h-2 overflow-hidden rounded-full bg-muted">
         <div
           className={cn('h-full rounded-full transition-[width] duration-200', color)}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+    </div>
+  )
+}
+
+/** Fase del ciclo de vida del gusano (huevo→L1→…→adulto, con dauer). */
+function WormStageBar({ c }: { c: CreatureView }) {
+  const stage = c.stage
+  if (!stage || c.stagePct === undefined) {
+    // Salvaguarda: sin datos de fase se conserva la barra de edad clásica.
+    const agePct = Math.min(100, (c.age / c.maxAge) * 100)
+    return (
+      <Bar
+        label={`Edad ${Math.round(c.age)}s / ${c.maxAge}s`}
+        pct={agePct}
+        color="bg-emerald-700"
+      />
+    )
+  }
+  const pct = Math.round(Math.max(0, Math.min(1, c.stagePct)) * 100)
+  const next: Record<WormStage, string | null> = {
+    l1: 'L2',
+    l2: 'L3',
+    l3: 'L4',
+    l4: 'Adulto',
+    adult: null,
+    dauer: null,
+  }
+  const isDauer = stage === 'dauer'
+  const isAdult = stage === 'adult'
+  // La insignia ya muestra la fase y la derecha el %: la nota aporta el rumbo
+  // ("Fase L3 · 62% · hacia L4" se compone de badge + % + nota).
+  const note = isDauer
+    ? 'supervivencia'
+    : isAdult
+      ? `de ~${WORM_LIFE.adultMedian}s de vida`
+      : `hacia ${next[stage]}`
+  const badgeCls = isDauer
+    ? 'border-purple-400/60 text-purple-300'
+    : isAdult
+      ? 'border-amber-400/60 text-amber-400'
+      : 'border-emerald-400/60 text-emerald-400'
+  const barCls = isDauer ? 'bg-purple-400' : isAdult ? 'bg-amber-500' : 'bg-emerald-500'
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <Badge
+            variant="outline"
+            className={cn('shrink-0 px-1.5 py-0 font-mono text-[10px] leading-4', badgeCls)}
+          >
+            {WORM_STAGE_LABEL[stage]}
+          </Badge>
+          <span className="truncate">{note}</span>
+        </span>
+        <span className="shrink-0 tabular-nums">{pct}%</span>
+      </div>
+      <div className="h-2 overflow-hidden rounded-full bg-muted">
+        <div
+          className={cn('h-full rounded-full transition-[width] duration-200', barCls)}
           style={{ width: `${pct}%` }}
         />
       </div>

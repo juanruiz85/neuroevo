@@ -3,11 +3,15 @@
 // Visualización en vivo del cerebro de la criatura seleccionada.
 //  · Moscas (ANN): 12 sensores → 8 ocultas → 3 motores; el brillo de cada
 //    nodo es su activación y el color/grosor de cada arista, el peso.
-//  · Gusanos (C. elegans): conectoma biológico real — 300 neuronas en tres
-//    sectores por clase (sensoriales / interneuronas / motoras), brillo por
-//    potencial de membrana y destello blanco al disparar (LIF).
+//  · Gusanos (C. elegans): conectoma biológico real, en dos vistas con
+//    pestañas — "Circuito vivo" (flujo sensorial → comando → motor con
+//    partículas y riel de sentidos) y "Anillo" (300 neuronas en tres
+//    sectores por clase, brillo por potencial de membrana y destello
+//    blanco al disparar, LIF).
 
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { CircuitView } from '@/components/sim/circuit-view'
 import {
   ELEGANS_CLASSES,
   ELEGANS_INFO,
@@ -21,6 +25,34 @@ import {
 import type { CreatureView } from '@/lib/sim/types'
 
 export function BrainView({ creature }: { creature: CreatureView }) {
+  const [view, setView] = useState('circuito')
+  const isElegans = creature.brainKind === 'elegans' && creature.connectome != null
+
+  // Las moscas mantienen su ANN intacta; los gusanos ganan dos vistas.
+  if (!isElegans) return <AnnCanvas creature={creature} />
+
+  return (
+    <Tabs value={view} onValueChange={setView} className="w-full">
+      <TabsList className="grid h-8 w-full grid-cols-2">
+        <TabsTrigger value="circuito" className="text-[11px]">
+          Circuito vivo
+        </TabsTrigger>
+        <TabsTrigger value="anillo" className="text-[11px]">
+          Anillo
+        </TabsTrigger>
+      </TabsList>
+      <TabsContent value="circuito" className="mt-2">
+        <CircuitView creature={creature} />
+      </TabsContent>
+      <TabsContent value="anillo" className="mt-2">
+        <RingCanvas creature={creature} />
+      </TabsContent>
+    </Tabs>
+  )
+}
+
+// Canvas de la ANN 12→8→3 (moscas). Redibuja en cada snapshot (~220 ms).
+function AnnCanvas({ creature }: { creature: CreatureView }) {
   const ref = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -37,11 +69,7 @@ export function BrainView({ creature }: { creature: CreatureView }) {
     }
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    if (creature.brainKind === 'elegans' && creature.connectome) {
-      drawConnectome(ctx, w, h, dpr, creature)
-    } else {
-      drawAnn(ctx, w, h, dpr, creature)
-    }
+    drawAnn(ctx, w, h, dpr, creature)
   })
 
   return (
@@ -49,6 +77,36 @@ export function BrainView({ creature }: { creature: CreatureView }) {
       ref={ref}
       className="block h-[340px] w-full"
       aria-label="Actividad neuronal de la criatura en tiempo real"
+    />
+  )
+}
+
+// Canvas del anillo del conectoma (vista clásica de los gusanos).
+function RingCanvas({ creature }: { creature: CreatureView }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = ref.current
+    if (!canvas) return
+    const parent = canvas.parentElement
+    if (!parent) return
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const w = Math.max(200, Math.round(parent.clientWidth))
+    const h = 340
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr)
+      canvas.height = Math.round(h * dpr)
+    }
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    drawConnectome(ctx, w, h, dpr, creature)
+  })
+
+  return (
+    <canvas
+      ref={ref}
+      className="block h-[340px] w-full"
+      aria-label="Conectoma de C. elegans en tiempo real"
     />
   )
 }
