@@ -11,10 +11,14 @@ directamente en tu navegador.
 ![Tailwind CSS 4](https://img.shields.io/badge/Tailwind%20CSS%204-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
 ![Prisma](https://img.shields.io/badge/Prisma%20+%20SQLite-2D3748?style=flat-square&logo=prisma&logoColor=white)
 ![Licencia](https://img.shields.io/badge/licencia-MIT-10B981?style=flat-square)
+[![Release](https://img.shields.io/github/v/release/juanruiz85/neuroevo?style=flat-square&label=release&color=10B981)](https://github.com/juanruiz85/neuroevo/releases)
 
 ![Captura general de NeuroEvo](docs/screenshots/general.png)
 
+**▶ [Probar en vivo](https://juanruiz85.github.io/neuroevo/)** — la simulación completa corre en tu navegador, sin instalar nada.
+
 [🧠 Arquitectura](docs/ARQUITECTURA.md) ·
+[🪱 Conectoma C. elegans](docs/CONNECTOMA-C-ELEGANS.md) ·
 [🛠️ Cómo se creó](docs/DESARROLLO.md) ·
 [📜 Changelog](CHANGELOG.md) ·
 [📓 Bitácora de trabajo](docs/worklog.md)
@@ -67,16 +71,41 @@ observar (y documentar) cómo evoluciona cada especie para adaptarse.
 
 | | |
 |---|---|
-| ![Inspector neuronal](docs/screenshots/inspector-neuronal.png) | ![Estadísticas](docs/screenshots/estadisticas.png) |
-| **Inspector neuronal**: ficha + cerebro en vivo de la criatura seleccionada | **Datos**: KPIs y evolución de poblaciones, velocidad y generaciones |
-| ![Vista móvil](docs/screenshots/movil.png) | **4 pestañas**: Ambiente (presets + sliders), Inspector, Datos y Museo. |
-| Diseño responsivo (escritorio y móvil) con tema claro/oscuro | |
+| ![Conectoma de C. elegans en vivo](docs/screenshots/conectoma-elegans.png) | ![Inspector de una mosca](docs/screenshots/inspector-neuronal.png) |
+| **Inspector · gusano**: anillo del conectoma real de *C. elegans* — 300 neuronas LIF en 3 clases (ámbar sensoriales, gris interneuronas, esmeralda motoras), destellos blancos por disparo y salidas motoras | **Inspector · mosca**: red clásica 12→8→3 con aristas verdes/rojas por peso — el control experimental para la Fase 2 (*Drosophila*) |
+| ![Estadísticas](docs/screenshots/estadisticas.png) | ![Vista móvil](docs/screenshots/movil.png) |
+| **Datos**: KPIs y evolución de poblaciones, velocidad y generaciones | **4 pestañas** (Ambiente, Inspector, Datos, Museo) · diseño responsivo con tema claro/oscuro |
 
 ## 🧠 Cómo funciona la simulación
 
-### El cerebro (12 → 8 → 3)
+Cada criatura siente y decide **30 veces por segundo**. Desde v1.1.0 conviven
+dos arquitecturas cerebrales en el ecosistema:
 
-Cada criatura siente y decide 30 veces por segundo:
+### 🪱 El gusano: conectoma real de *C. elegans* (Fase 1)
+
+Las **300 neuronas y 4.731 sinapsis** del hermafrodita (dataset de
+[OpenWorm](https://github.com/openworm/CElegansNeuroML), 55 KB embebidos en la
+app) se simulan con un modelo **LIF** (integración y disparo con fugas). El
+clima y los recursos se inyectan en las **neuronas sensoriales reales** y la
+conducta emerge de los pools motores:
+
+| Estímulo → neuronas reales | Conducta ← pools motores |
+|---|---|
+| Temperatura → **AFD** (el termosensor real) + AWC | Avanzar ← VB/DB + AVB (pool B de avance) |
+| Comida → ASE (gusto), AWC/AWA (olfato) | Girar ← asimetría dorso-ventral RMD/SM/SMB |
+| Veneno → ASH (nocicepción), PHA/PHB | Reversa ← VA/DA + AVA (pool A: al retroceder re-orienta) |
+| Humedad → BAG · Multitud → PVD/ALM · Hambre → ADF | Reproducirse ← VC + HSN (circuito real de puesta) |
+
+- Sinapsis químicas con signo según el neurotransmisor presináptico (GABA
+  inhibitorio) y uniones en gap con difusión de potencial + transmisión de
+  picos (así comandan AVA/AVB a los pools motores).
+- El algoritmo genético **no toca la estructura sináptica** — es biología.
+  Evoluciona la **neuromodulación**: 20 genes (ganancias sensoriales, escalas
+  ACh/Glu/GABA/monoaminas, τ de fuga, umbral, refractario, impulso tónico).
+- Con frío extremo, el coeficiente **Q10** debilita la entrega sináptica: el
+  nemátodo se vuelve letárgico y torpe, como el real.
+
+### 🪰 La mosca: ANN 12 → 8 → 3 (control experimental)
 
 | Entradas (sensores) | Salidas (motores) |
 |---|---|
@@ -93,12 +122,16 @@ Cada criatura siente y decide 30 veces por segundo:
 > motoras se debilitan y las criaturas se vuelven lentas y torpes. Cuando hace
 > calor extremo (> 33 °C) todo se acelera pero la energía se quema… y puede
 > ser mortal.
+>
+> Detalles completos del conectoma (dataset, LIF, mapeos, simplificaciones
+> honestas): [docs/CONNECTOMA-C-ELEGANS.md](docs/CONNECTOMA-C-ELEGANS.md).
 
 ### Genética y evolución
 
 - Si una criatura acumula energía y su impulso reproductivo se activa, tiene
-  una cría que **hereda los 131 pesos** de su cerebro con un 10 % de genes
-  mutados (ruido gaussiano).
+  una cría que hereda su cerebro mutado: en las **moscas** los 131 pesos de la
+  ANN (10 % de genes con ruido gaussiano); en los **gusanos** los 20 genes de
+  neuromodulación del conectoma.
 - También heredan (y mutan) dos **rasgos físicos**: velocidad máxima y rango
   sensorial — verás linajes de corredores veloces y otros de grandes ojos.
 - La aptitud de cada individuo (comidas + hijos + longevidad) decide quién
@@ -146,18 +179,23 @@ neuroevo/
 │   │   │   ├── sim-canvas.tsx    #   canvas interactivo del mapa
 │   │   │   ├── environment-panel.tsx  #   presets + sliders
 │   │   │   ├── inspector-panel.tsx    #   ficha de la criatura
-│   │   │   ├── brain-view.tsx    #   red neuronal en vivo
+│   │   │   ├── brain-view.tsx    #   cerebro en vivo (ANN o conectoma)
 │   │   │   ├── stats-panel.tsx   #   KPIs + gráficas recharts
 │   │   │   ├── museum-panel.tsx  #   guardar/sembrar élites
 │   │   │   └── sim-header.tsx    #   controles (pausa, velocidad…)
 │   │   └── ui/                   # Componentes shadcn/ui
 │   └── lib/
 │       ├── sim/                  # ⚙️ MOTOR DE SIMULACIÓN (sin React)
-│       │   ├── nn.ts             #   red neuronal 12→8→3 + mutación
+│       │   ├── connectome/       #   🧠 Cerebros (patrón Strategy)
+│       │   │   ├── adapter.ts    #     IBrainAdapter + registro de fábricas
+│       │   │   └── elegans.ts    #     conectoma C. elegans + motor LIF
+│       │   ├── data/c_elegans_connectome.json   # 300 neuronas / 4.731 sinapsis
+│       │   ├── nn.ts             #   ANN 12→8→3 de las moscas + mutación
 │       │   ├── creature.ts       #   ciclo sentir→pensar→actuar
 │       │   ├── world.ts          #   mundo, clima, comida, evolución
 │       │   ├── render.ts         #   renderer Canvas 2D puro
 │       │   ├── rng.ts            #   RNG determinista + gauss
+│       │   ├── static-museum.ts  #   Museo en localStorage (modo estático)
 │       │   └── types.ts          #   tipos y constantes de balance
 │       └── db.ts                 # Cliente Prisma
 ├── prisma/schema.prisma          # Modelo EvolutionRecord
@@ -170,7 +208,7 @@ neuroevo/
 | Método | Ruta | Descripción |
 |---|---|---|
 | `GET` | `/api/records` | Últimos 60 cerebros guardados (más recientes primero). |
-| `POST` | `/api/records` | Guarda una élite: `{ species, generation, fitness, brain: { weights, traits }, env, name? }` (validado con zod). |
+| `POST` | `/api/records` | Guarda una élite: `{ species, generation, fitness, brain: { kind: 'ann' \| 'elegans', weights, traits }, env, name? }` (validado con zod; los registros antiguos sin `kind` se siembran como ANN clásica). |
 | `DELETE` | `/api/records/[id]` | Elimina un registro. |
 
 Los cerebros se persisten en SQLite (Prisma) como JSON, listos para sembrarse
@@ -220,6 +258,9 @@ Cómo funciona:
    calor* las moscas colapsan. ¿Cuántas generaciones tardan en adaptarse?
 5. **Fósiles vivientes**: guarda élites de generaciones tempranas y compáralas
    con las tardías sembrando ambas en el mismo mundo.
+6. **Biología vs. azar**: compara el inspector de un gusano (picos/tick y
+   actividad media del conectoma LIF) con el de una mosca (ANN). ¿Qué cerebro
+   coloniza antes un mundo nuevo: 300 neuronas reales o 131 pesos evolucionados?
 
 ## 📚 Documentación adicional
 

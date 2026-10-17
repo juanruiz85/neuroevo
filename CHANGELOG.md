@@ -5,6 +5,36 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.1.1] — 2026-10-17
+
+Mantenimiento de documentación y un ajuste visual del inspector.
+
+### Arreglado
+- **Conectoma (inspector)**: las etiquetas de las salidas motoras quedaban
+  cortadas en el borde derecho del canvas ("Reproduci…"); la columna de
+  motores ahora reserva espacio suficiente y "Girar/Avanzar/Reproducir" con
+  su valor se ven completos en cualquier ancho.
+
+### Documentación
+- README: añadida la **captura del conectoma de *C. elegans* en vivo**
+  (faltaba la imagen de la característica estrella de v1.1.0), tabla de la
+  interfaz reorganizada (gusano/conectoma y mosca/ANN), sección "Cómo
+  funciona" reescrita con los dos cerebros (mapeos sensoriales y motores
+  del conectoma + ANN), genética dual (20 genes vs 131 pesos), estructura
+  del proyecto actualizada (`connectome/`, dataset, `static-museum.ts`),
+  API con `brain.kind`, badge de release dinámico, enlace "Probar en vivo"
+  y un experimento nuevo ("Biología vs. azar").
+- `inspector-neuronal.png` retomada: mostraba un gusano con la ANN 12→8→3
+  (cerebro que los gusanos ya no usan desde v1.1.0); ahora muestra una
+  mosca, que es quien conserva esa arquitectura como control experimental.
+- `docs/ARQUITECTURA.md`: sección 2 reescrita ("Los cerebros") con la
+  interfaz `IBrainAdapter`, el grafo CSR compartido del conectoma, la
+  dinámica LIF, las tablas de mapeo sensorial/motor, el genoma de 20 genes,
+  la evolución dual y nueva sección de export estático y despliegue.
+- `docs/DESARROLLO.md`: fases 6-9 documentadas (publicación de v1.0.0,
+  Fase 1 *C. elegans* con su sintonía empírica, publicación de v1.1.0 y
+  verificación E2E del sitio público).
+
 ## [1.1.0] — 2026-10-17
 
 Los gusanos dejan atrás las redes neuronales aleatorias: ahora simulan el
@@ -135,5 +165,6 @@ Primera versión pública completa.
 - Evolución observada hasta la generación 17 en ~10 minutos de simulación
   (560 nacimientos / 579 muertes).
 
+[1.1.1]: https://github.com/juanruiz85/neuroevo/releases/tag/v1.1.1
 [1.1.0]: https://github.com/juanruiz85/neuroevo/releases/tag/v1.1.0
 [1.0.0]: https://github.com/juanruiz85/neuroevo/releases/tag/v1.0.0

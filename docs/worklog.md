@@ -384,3 +384,57 @@ Stage Summary:
   Release con el sitio compilado adjunto.
 - Pipeline v* → build → Pages + Release confirmado de nuevo (run #3
   SUCCESS). Siguiente versión: tag v1.2.0 + push.
+
+---
+Task ID: 10
+Agent: main (Z.ai Code)
+Task: Actualizar toda la documentación al estado actual (v1.1.x) y
+arreglar la imagen que faltaba en el README.
+
+Work Log:
+- Diagnóstico: el README describía el conectoma como característica
+  estrella pero NO tenía ninguna captura de él; además
+  inspector-neuronal.png mostraba un GUSANO con la ANN 12→8→3 (cerebro
+  que los gusanos ya no usan desde v1.1.0). CHANGELOG ya estaba al día
+  con 1.1.0; ARQUITECTURA.md y DESARROLLO.md seguían en v1.0.0.
+- Bug encontrado y arreglado en brain-view.tsx: las etiquetas de las
+  salidas motoras del conectoma se dibujaban en outX+11 = w−53 y
+  "Reproducir 1.00" (~75 px) se salía del canvas (aparecía "Reproduci…").
+  outX pasa de w−64 a w−92 (el mismo margen que usa la vista ANN).
+- Capturas nuevas (dev local, tema oscuro, viewport 1680×1050):
+  - docs/screenshots/conectoma-elegans.png (NUEVA): gusano con el anillo
+    del conectoma — verificada por VLM 9/10, tres sectores, destellos y
+    las 3 etiquetas motoras completas (Girar -0.00 · Avanzar 0.54 ·
+    Reproducir 0.71).
+  - docs/screenshots/inspector-neuronal.png (RETOMADA): ahora una mosca
+    (Moscón #121) con su ANN 12→8→3 — VLM 9/10. El truco para capturar:
+    scrollIntoView del canvas (el panel tiene scroll interno y la captura
+    full-page no lo alcanza) y pausar la sim para que no muera el
+    seleccionado (mueren de hambre en segundos).
+- README.md: badge de release dinámico, enlace "Probar en vivo", fila de
+  conectoma en la tabla de interfaz, sección "Cómo funciona" reescrita
+  con los dos cerebros (tabla estímulo→neurona / conducta→pool), genética
+  dual, estructura con connectome/ + dataset + static-museum, API con
+  brain.kind, experimento 6 "Biología vs. azar" y enlace al doc del
+  conectoma en la cabecera.
+- ARQUITECTURA.md: sección 2 "Los cerebros" (IBrainAdapter + FACTORIES,
+  dataset OpenWorm, grafo CSR, dinámica LIF, tablas de mapeos, genoma de
+  20 genes, ANN como 2.2), sección 7 con evolución dual y
+  retrocompatibilidad kind, sección 9 con las dos vistas del inspector,
+  sección 10 con kind en el modelo, nueva sección 11 (export estático y
+  despliegue) y 12 (constantes + calibración LIF).
+- DESARROLLO.md: "Fases (9 tareas)" — añadidas tareas 6-9 (re-verificación
+  + aviso de seguridad, publicación v1.0.0 con la incidencia CI resuelta,
+  Fase 1 C. elegans con la sintonía empírica honesta, publicación v1.1.0
+  con E2E), metodología ampliada con "simplificaciones declaradas" y
+  líneas futuras encabezadas por la Fase 2 Drosophila.
+- CHANGELOG 1.1.1 (arreglo + docs) y package.json a 1.1.1.
+- lint: 0 errores. Dev server: compilación limpia tras el fix.
+
+Stage Summary:
+- Documentación al día con la v1.1.1: README, ARQUITECTURA, DESARROLLO,
+  CHANGELOG y worklog reflejan los dos cerebros y todo el pipeline.
+- La "imagen que faltaba" era la del conectoma: captura nueva verificada
+  9/10 + la vieja captura de gusano-ANN sustituida por una mosca.
+- Bug visual real de v1.1.0 corregido (etiquetas motoras cortadas).
+- Publicado como v1.1.1 (tag → workflow → Pages + Release automáticos).

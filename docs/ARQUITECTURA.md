@@ -1,8 +1,9 @@
 # Arquitectura de NeuroEvo
 
 Este documento describe cómo funciona el sistema por dentro: el motor de
-simulación, la red neuronal, el modelo de energía, el clima, la evolución, el
-renderer y la integración con React/Next.js.
+simulación, los **dos cerebros** (conectoma biológico de *C. elegans* y ANN
+evolutiva), el modelo de energía, el clima, la evolución, el renderer y la
+integración con React/Next.js.
 
 ---
 
@@ -62,7 +63,87 @@ Así React solo re-renderiza paneles ~4.5 veces/s mientras el canvas corre a
   hidratación por `Math.random()` durante el SSR.
 - Cada ~220 ms se publica `world.snapshot()` a React mediante `setUi`.
 
-## 2. La red neuronal (`src/lib/sim/nn.ts`)
+## 2. Los cerebros (`connectome/adapter.ts`, `connectome/elegans.ts`, `nn.ts`)
+
+Desde v1.1.0 el ecosistema aloja **dos arquitecturas cerebrales** tras una
+interfaz común (patrón Strategy):
+
+```ts
+interface IBrainAdapter {
+  kind: 'ann' | 'elegans'          // 'drosophila' llegará en la Fase 2
+  w: Float32Array                   // genoma plano serializable
+  inA / hA / oA: Float32Array       // espejos para el inspector
+  forward(inputs, voltage?)         // 30 Hz: 12 canales → [girar, avanzar, reproducir]
+  clone(): IBrainAdapter            // reproducción asexual
+  mutate(rng, rate?, sigma?)        // algoritmo genético
+  connectomeView?(): ConnectomeActivity  // opcional: potenciales + picos
+}
+```
+
+El registro `FACTORIES` (`createBrain(species, genome?)`) decide qué cerebro
+usa cada especie: **mosca → ANN**, **gusano → conectoma de *C. elegans***.
+Integrar el conectoma de *Drosophila* (Fase 2, ver
+[FASE-2-DROSOPHILA.md](FASE-2-DROSOPHILA.md)) solo toca la fábrica de la mosca;
+criatura, mundo, renderer e inspector no cambian.
+
+### 2.1 Conectoma real de *C. elegans* (`connectome/elegans.ts`)
+
+**Dataset** (`data/c_elegans_connectome.json`, 55 KB, procedente de
+[OpenWorm](https://github.com/openworm/CElegansNeuroML)): 300 de las 302
+neuronas del hermafrodita (CANL/R carecen de sinapsis; incluye las 20
+faríngeas), **3.638 sinapsis químicas + 1.093 uniones en gap** (≈25.000
+contactos), clasificadas en 86 sensoriales / 164 interneuronas / 50 motoras,
+con neurotransmisor por neurona (ACh, GABA, Glu, 5HT, DA, OCT, TA, FMRF).
+
+**Grafo compartido (CSR)**: la estructura sináptica es idéntica para todos
+los gusanos (es biología), así que se construye **una sola vez** como arrays
+planos (`srcOff`/`dst`/`w`/`txIdx` + `gapA`/`gapB`/`gapW`). El peso químico
+es `signo · log₂(1 + contactos)` con GABA negativo; cada individuo solo
+porta su estado de membrana (300 `Float32`) y su genoma de 20 genes.
+
+**Dinámica LIF** (integración y disparo con fugas) por tick:
+
+```
+v[i] += dt/τ · (−v[i] + I_syn[i] + tónico)
+si v[i] > umbral y pasó el refractario → pico:
+  entrega inmediata w[j] · escalaTx(presináptico) a cada postsináptica
+  (multiplicada por `voltage` — el Q10 térmico: frío extremo debilita
+  la transmisión, como en el nemátodo real)
+uniones en gap: difusión de potencial cada tick + picos transmitidos
+  (así AVA/AVB comandan los pools motores A/B)
+```
+
+**Mapeo sensorial** (los 12 canales del mundo → neuronas reales):
+
+| Canal | Neurona(s) | Papel biológico |
+|---|---|---|
+| Sesgo/tónico | AVB + RMDD | comando de avance + oscilador cefálico |
+| Energía (hambre) | ADF | integración del estado interno |
+| Térmico (con signo) | **AFD** + AWC | termosensor primario real |
+| Luz | ASH | nociceptor polimodal (el nemátodo es fotofóbico) |
+| Humedad | BAG | sensor ambiental |
+| Comida X/Y/cercanía | ASE + AWC/AWA | gusto + olfato (asimetría L/R) |
+| Veneno X/Y/cercanía | PHA/PHB + ASH | fásmidos aversivos + nocicepción |
+| Multitud | PVD + ALM | nocicepción mecánica + tacto suave |
+
+**Mapeo motor** (pools reales → las 3 salidas):
+
+| Salida | Pools |
+|---|---|
+| Avanzar | VB01-11, DB01-07, AVB, PVC (comando B) |
+| Girar | asimetría dorso-ventral de RMD/SM/SMB (el vaivén real), ×2.2 en reversa (VA/DA + AVA/AVD/AVE: al retroceder re-orienta) |
+| Reproducirse | VC01-06 + HSN (circuito real de la puesta) |
+
+**Genoma evolutivo (20 genes)** — el GA no toca la estructura, evoluciona la
+neuromodulación y la excitabilidad, como en el animal:
+
+| Genes | Contenido |
+|---|---|
+| `[0..11]` | ganancia sensorial por canal |
+| `[12..15]` | escalas de transmisión: ACh / GABA / Glu / monoaminas+neuropéptidos |
+| `[16..19]` | τ de fuga · umbral de disparo · periodo refractario · impulso tónico |
+
+### 2.2 ANN 12 → 8 → 3 (`nn.ts`, moscas)
 
 Topología fija **12 → 8 → 3** con activaciones `tanh` (ocultas y giro) y
 `sigmoid` (avanzar/reproducir). Los 131 pesos viven en un `Float32Array`
@@ -102,12 +183,14 @@ Con temperaturas bajo 10 °C, `voltaje ∈ [0.25, 1]` escala las salidas
 motoras: las señales se debilitan y las criaturas se adormecen (mecánica
 inspirada en la poiquilotermia de los insectos reales).
 
-### Genoma y mutación
+### Genoma y mutación (ANN)
 
-El genoma = pesos (131) + 2 rasgos cuantitativos: `maxSpeed` y `vision`.
-`Brain.mutate(rng, tasa, sigma)` aplica ruido gaussiano a cada peso con
-probabilidad `tasa` (10 % en reproducción natural, 5 % al sembrar del Museo)
-y acota los pesos a ±4 para evitar explosiones.
+El genoma de la mosca = pesos (131) + 2 rasgos cuantitativos: `maxSpeed` y
+`vision`. `Brain.mutate(rng, tasa, sigma)` aplica ruido gaussiano a cada peso
+con probabilidad `tasa` (10 % en reproducción natural, 5 % al sembrar del
+Museo) y acota los pesos a ±4 para evitar explosiones. El genoma del gusano
+son sus 20 genes de neuromodulación (sección 2.1); sus rasgos físicos mutan
+igual que los de la mosca.
 
 ## 3. Las especies (`src/lib/sim/types.ts`)
 
@@ -178,16 +261,19 @@ miles de operaciones.
 
 ```
 criatura.energy > 62 y quiere_hijo
-   → hijo = clon(ponderado) del cerebro + mutación
+   → hijo = clon del cerebro + mutación
+     (mosca: 131 pesos ANN · gusano: 20 genes de neuromodulación)
    → rasgos: maxSpeed ±6 %, vision ±5 % (clamped a rangos por especie)
    → generación = progenitor + 1   (se rastrea maxGen global)
 aptitud = comidas×2 + hijos×4 + edad×0.05   ← criterio del Museo
 ```
 
 `World.getElite()` toma las 2 mejores criaturas de cada especie por aptitud
-y las serializa (pesos redondeados a 3 decimales + rasgos) para el Museo.
-`seedFromRecord()` siembra 8 individuos con ese cerebro y una mutación leve
-(5 %, σ 0.2), conservando la generación para continuidad de linaje.
+y las serializa (`kind` + pesos/genes redondeados a 3 decimales + rasgos)
+para el Museo. `seedFromRecord()` siembra 8 individuos con ese cerebro y una
+mutación leve (5 %, σ 0.2), conservando la generación para continuidad de
+linaje; los registros de gusano previos a v1.1.0 (sin `kind`) se siembran
+como ANN clásica.
 
 ## 8. Renderer (`src/lib/sim/render.ts`)
 
@@ -213,10 +299,15 @@ invierten con `screenToWorld`). Capas, en orden:
   cambia a la pestaña Inspector automáticamente.
 - Los paneles consumen `ui: WorldView` (inmutable por snapshot), así que
   React re-renderiza a ~4.5 Hz como máximo.
-- El inspector neuronal (`brain-view.tsx`) redibuja la red en cada snapshot:
-  nodos coloreados por activación (verde positivo / rojo negativo), aristas
-  por peso×activación, y un anillo dorado cuando el impulso reproductivo
-  supera 0.55.
+- El inspector neuronal (`brain-view.tsx`) redibuja el cerebro en cada
+  snapshot según su arquitectura:
+  - **Gusano (conectoma)**: anillo con las 300 neuronas en tres sectores por
+    clase (ámbar sensoriales, gris interneuronas, esmeralda motoras), brillo
+    por potencial de membrana, destello blanco al disparar, etiquetas de
+    neuronas clave (AFD/ASE/AVA/VB/VC…), picos/tick y las 3 salidas motoras.
+  - **Moscón (ANN)**: red 12→8→3 con nodos coloreados por activación (verde
+    positivo / rojo negativo), aristas por peso×activación y un anillo dorado
+    cuando el impulso reproductivo supera 0.55.
 
 ## 10. Datos y API (Museo de la Evolución)
 
@@ -227,21 +318,42 @@ model EvolutionRecord {
   species    String            // 'fly' | 'worm'
   generation Int      @default(0)
   fitness    Float    @default(0)
-  brain      String            // JSON: { weights: number[131], traits }
+  brain      String            // JSON: { kind:'ann'|'elegans', weights, traits }
   env        String            // JSON: clima en el momento del guardado
   createdAt  DateTime @default(now())
 }
 ```
 
+El campo `kind` es opcional y retrocompatible: los registros de gusanos
+previos a v1.1.0 (sin `kind`) se siembran como ANN clásica; los elegans
+llevan sus 20 genes en `weights`.
+
 | Método | Ruta | Comportamiento |
 |---|---|---|
 | `GET` | `/api/records` | Últimos 60 por `createdAt` desc, con `brain`/`env` parseados a objetos. |
-| `POST` | `/api/records` | Valida con zod (species enum, pesos numéricos, rasgos > 0); responde 201. |
+| `POST` | `/api/records` | Valida con zod (species enum, kind opcional, pesos numéricos, rasgos > 0); responde 201. |
 | `DELETE` | `/api/records/[id]` | Elimina; 404 si no existe. Params asíncronos (Next.js 16). |
 
-## 11. Constantes de balance
+## 11. Export estático y despliegue
+
+- **Modo dev** (`bun run dev`): Museo respaldado por la API + SQLite.
+- **Modo estático** (`bun run build:static` → `output: "export"`): sin
+  servidor, `src/lib/static-museum.ts` guarda los linajes élite en
+  `localStorage` con el mismo contrato `EvolutionRecordDTO` (degradación
+  elegante; la simulación corre íntegra en el navegador).
+- `next.config.ts` conmuta por variables de entorno
+  (`NEXT_OUTPUT`, `NEXT_PUBLIC_BASE_PATH`, `NEXT_PUBLIC_STATIC_MODE`,
+  `NEXT_DIST_DIR`); el `basePath` se calcula según el repositorio en CI.
+- **Workflow** `.github/workflows/deploy-pages.yml`: al subir un tag `v*`
+  → build estático (excluyendo `src/app/api`) → `actions/deploy-pages` →
+  `gh release create --generate-notes` con el sitio compilado como `.zip`.
+
+## 12. Constantes de balance
 
 Todas las constantes de tuning viven en `src/lib/sim/types.ts`
 (`SPECIES_CONFIG`, `FOOD_INFO`, `DEFAULT_ENV`) y en los literales de
-`world.ts`/`creature.ts` documentados arriba. Cambiarlas ahí recalibra todo
-el ecosistema sin tocar la interfaz.
+`world.ts`/`creature.ts` documentados arriba. Las constantes del motor LIF
+(τ, umbral, refractario, escalas de transmisor y la forma de los pesos
+`0.085·log₂(1+contactos)`) están calibradas empíricamente en
+`connectome/elegans.ts` — ver [CONNECTOMA-C-ELEGANS.md](CONNECTOMA-C-ELEGANS.md)
+para el razonamiento completo.

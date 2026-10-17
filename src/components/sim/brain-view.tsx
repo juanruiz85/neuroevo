@@ -227,7 +227,8 @@ function drawConnectome(
   const n = ELEGANS_NAMES.length
 
   // Composición: anillo de neuronas a la izquierda, salidas motoras a la derecha.
-  const outX = w - 64
+  // outX deja ~92 px a la derecha para la etiqueta más ancha ("Reproducir 1.00").
+  const outX = w - 92
   const cx = Math.max(70, (w - 118) / 2)
   const cy = h / 2 - 6
   const R = Math.max(46, Math.min(cx - 24, h / 2 - 40))
