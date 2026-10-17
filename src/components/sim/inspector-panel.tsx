@@ -8,6 +8,7 @@ import {
   Bug,
   Dna,
   Egg,
+  FileDown,
   Gauge,
   Hourglass,
   Network,
@@ -21,6 +22,7 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -31,13 +33,28 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { BrainView } from '@/components/sim/brain-view'
+import {
+  BRAIN_ARCH_LABEL,
+  BrainExportButton,
+  BrainImportButton,
+  SPECIES_PLURAL,
+  brainFileFromCreature,
+  toSeedRecord,
+  type BrainFileData,
+} from '@/components/sim/brain-io'
 import { SensorStrip } from '@/components/sim/sensor-strip'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import {
   ELEGANS_INFO,
   SPECIES_CONFIG,
   WORM_LIFE,
   WORM_STAGE_LABEL,
   type CreatureView,
+  type EvolutionRecordDTO,
   type Species,
   type WormStage,
 } from '@/lib/sim'
@@ -47,9 +64,20 @@ interface Props {
   selected: CreatureView | null
   onFollow: (s: Species) => void
   onRelease: () => void
+  /**
+   * Siembra un cerebro importado (SimApi.seedFromRecord). Es opcional para no
+   * romper la integración actual: si se proporciona, el Inspector muestra
+   * también el botón «Importar y sembrar».
+   */
+  onSeed?: (rec: EvolutionRecordDTO) => number
 }
 
-export function InspectorPanel({ selected, onFollow, onRelease }: Props) {
+export function InspectorPanel({
+  selected,
+  onFollow,
+  onRelease,
+  onSeed,
+}: Props) {
   if (!selected) {
     return (
       <Card>
@@ -92,6 +120,21 @@ export function InspectorPanel({ selected, onFollow, onRelease }: Props) {
           100,
       )
     : 0
+
+  // Cerebro importado → registro del motor → 8 individuos sembrados (sin
+  // restricción de especie: seedFromRecord añade criaturas al mundo actual
+  // funcione en el modo que funcione).
+  const handleImportBrain = (data: BrainFileData) => {
+    if (!onSeed) return
+    const n = onSeed(toSeedRecord(data))
+    if (n > 0) {
+      toast.success(
+        `Cerebro importado: ${n} individuos sembrados (${SPECIES_PLURAL[data.species]}, G${data.generation}).`,
+      )
+    } else {
+      toast.error('No se pudo sembrar el cerebro importado.')
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -206,6 +249,75 @@ export function InspectorPanel({ selected, onFollow, onRelease }: Props) {
         <CardContent className="space-y-3">
           {c.brainKind === 'elegans' && <SensorStrip creature={c} />}
           <BrainView key={c.brainKind} creature={c} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <FileDown className="size-4 text-amber-500" />
+            Cerebro portátil
+          </CardTitle>
+          <CardDescription className="text-[11px]">
+            Guarda este cerebro como archivo .neuroevo.json para conservarlo o
+            trasladarlo a otra simulación (incluye arquitectura, genoma y
+            rasgos).
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2.5">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Badge
+              variant="outline"
+              className="px-1.5 py-0 font-mono text-[10px] leading-4"
+            >
+              {BRAIN_ARCH_LABEL[c.brainKind]}
+            </Badge>
+            <Badge
+              variant="secondary"
+              className="px-1.5 py-0 font-mono text-[10px] leading-4 tabular-nums"
+            >
+              {c.weights.length}{' '}
+              {c.brainKind === 'ann' ? 'pesos' : 'genes'}
+            </Badge>
+          </div>
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            El archivo porta el genoma completo (la estructura del conectoma es
+            compartida por toda la especie), listo para sembrarse en cualquier
+            simulación y seguir evolucionando.
+          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            <BrainExportButton
+              getBrain={() => brainFileFromCreature(c)}
+              label="Exportar"
+            />
+            {onSeed ? (
+              <BrainImportButton
+                onParsed={handleImportBrain}
+                label="Importar y sembrar"
+                variant="secondary"
+              />
+            ) : (
+              // Degradación elegante: sin onSeed el botón queda visible pero
+              // deshabilitado, con tooltip que explica por qué.
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span tabIndex={0} className="inline-flex">
+                    <BrainImportButton
+                      onParsed={handleImportBrain}
+                      label="Importar y sembrar"
+                      variant="secondary"
+                      disabled
+                      title="La siembra no está disponible: este panel no está conectado al motor de simulación."
+                    />
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  La siembra no está disponible: este panel no está conectado al
+                  motor de simulación.
+                </TooltipContent>
+              </Tooltip>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

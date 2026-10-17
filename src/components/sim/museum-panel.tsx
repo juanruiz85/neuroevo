@@ -15,6 +15,7 @@ import {
   Save,
   Sprout,
   Trash2,
+  Upload,
   Worm,
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
@@ -29,6 +30,14 @@ import {
 import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  BrainExportButton,
+  BrainImportButton,
+  SPECIES_PLURAL,
+  brainFileFromRecord,
+  toSeedRecord,
+  type BrainFileData,
+} from '@/components/sim/brain-io'
 import type {
   EliteRecord,
   EvolutionRecordDTO,
@@ -143,6 +152,20 @@ export function MuseumPanel({ onGetElite, onSeed }: Props) {
     )
   }
 
+  // Importación global: archivo .neuroevo.json válido → registro del motor →
+  // 8 individuos sembrados en el mundo actual (funciona también en modo
+  // estático: la siembra no depende del backend).
+  const importBrain = (data: BrainFileData) => {
+    const n = onSeed(toSeedRecord(data))
+    if (n > 0) {
+      toast.success(
+        `Cerebro importado: ${n} individuos sembrados (${SPECIES_PLURAL[data.species]}, G${data.generation}).`,
+      )
+    } else {
+      toast.error('No se pudo sembrar el cerebro importado.')
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Card>
@@ -238,6 +261,12 @@ export function MuseumPanel({ onGetElite, onSeed }: Props) {
                     >
                       <Sprout className="size-4" />
                     </Button>
+                    <BrainExportButton
+                      getBrain={() => brainFileFromRecord(rec)}
+                      iconOnly
+                      className="size-7 text-muted-foreground hover:text-foreground"
+                      title={`Exportar «${rec.name}» como archivo .neuroevo.json`}
+                    />
                     <Button
                       size="icon"
                       variant="ghost"
@@ -253,6 +282,28 @@ export function MuseumPanel({ onGetElite, onSeed }: Props) {
               </div>
             </ScrollArea>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center gap-2 text-sm">
+            <Upload className="size-4 text-amber-500" />
+            Importar cerebro
+          </CardTitle>
+          <CardDescription>
+            Carga un archivo .neuroevo.json (exportado del inspector, de este
+            museo o de otra simulación) y suelta 8 individuos con ese cerebro
+            en el mundo actual. Después podrás conservarlos con «Guardar la
+            élite».
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BrainImportButton
+            onParsed={importBrain}
+            label="Importar cerebro"
+            className="w-full sm:w-auto"
+          />
         </CardContent>
       </Card>
     </div>

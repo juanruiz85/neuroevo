@@ -819,3 +819,210 @@ Stage Summary:
   clásico replicado (Rankin 1990) sobre el conectoma real: reposo →
   reflejo → habituación → recuperación → ablación. Los tres modos
   comparten el mismo motor. Listo para las UIs de las Tasks 16-a/b/c.
+
+---
+Task ID: 16-a
+Agent: full-stack-developer
+Task: UI del Modo Retos/Arena (editor de laberintos, cronómetro,
+resultados y récords).
+
+Work Log:
+- Leídos worklog (Tasks 13-15) y PLAN-FASE-2 §6; auditados el shell
+  arena-panel y el contrato SimApi (arenaAddWall/UndoWall/SetGoal/Clear,
+  spawnAt, arenaStart, getWorld → addFoodAt/walls/width/height).
+- sim-canvas.tsx: contrato de herramienta `ToolAction = (kind:'click'|
+  'wall', a:{x,y}, b?:{x,y})` en coords del MUNDO (screenToWorld). 'wall'
+  = mousedown→previsualización en overlay canvas pointer-events-none
+  (línea slate + anclajes)→mouseup emite ('wall', inicio, fin) si ≥10 px
+  (Escape cancela); herramientas de clic emiten ('click', punto) y el
+  PANEL resuelve la acción leyendo la herramienta activa del instante
+  (useArenaToolStore.getState().tool, sin closures viejos). Con
+  tool 'select'/undefined el comportamiento de selección queda EXACTO.
+  Puente con page.tsx (que monta SimCanvas sin props) vía tienda zustand
+  exportada; reset a 'select' al desmontar el panel.
+- arena-panel.tsx (reescrito el shell): ToggleGroup de 7 herramientas
+  (44 px, tooltips + hint contextual), Soltar con dos Select (Gusano
+  C. elegans real|ANN · Mosca Drosophila real|ANN, coherentes al cambiar
+  especie), Deshacer pared + Limpiar todo con AlertDialog; Borrar elimina
+  la pared más cercana <14 px (distancia punto-segmento sobre world.walls);
+  Fruta/Veneno vía world.addFoodAt; Meta r=42 (si había, se mueve).
+- Cronómetro: «Iniciar ensayo» (deshabilitado sin criaturas / oculto al
+  correr), ui.runT en vivo mm:ss.d tabular-nums, pastilla «Ensayo en
+  marcha» + Progress de finalizaciones (respeta pausa/velocidad del motor).
+- Tabla de resultados ui.arenaResults: éxitos primero y luego por tiempo,
+  icono de especie, badge de arquitectura, Llegó ✓ esmeralda / Murió ✗
+  rose con causa (meta/veneno/inanición/edad), mejor tiempo destacado.
+- Récords en localStorage 'neuroevo-arena-records': al pasar
+  arenaRunning true→false con resultados se archivan {mejor tiempo,
+  especie+cerebro del mejor, fecha, participantes, éxitos, nº paredes};
+  lista compacta (máx. 20) con borrado individual. useSyncExternalStore
+  con snapshot de servidor vacío → sin mismatch de hidratación y
+  compatible con build estático (cero fetch). Frescura garantizada:
+  arenaStart() vacía arenaResults al comenzar cada ensayo.
+- Hint inicial «Tu primer reto, en 3 pasos» (Pared → Meta → Soltar +
+  Iniciar) cuando no hay paredes ni criaturas.
+- BUG corregido: el efecto que publicaba el callback en la tienda
+  reseteaba la herramienta a 'select' en cada cambio de especie/arquitectura
+  (recreación del callback) y desactivaba «Soltar» sin motivo — separado
+  en efecto de publicación y efecto de desmontaje (deps vacías).
+- Detalles: typo «herramiento», cronómetro a mm:ss.d literal, touch
+  targets ≥44 px en todos los botones/selects del panel, sin console.log,
+  paleta ámbar/esmeralda/rose/slate (sin indigo/azul), español.
+- Verificación: bunx tsc --noEmit limpio en src/ (solo quedan 2 errores
+  previos en skills/, excluidos); bun run lint 0 problemas; dev.log sin
+  errores de compilación. Frontera respetada (page/lab/inspector/museum/
+  use-simulation/lib/sim intactos; agentes 16-b/16-c en paralelo).
+
+Stage Summary:
+- El Modo Retos es jugable de punta a punta: se dibuja el laberinto con
+  previsualización, se colocan meta/fruta/veneno, se sueltan competidores
+  con conectoma real o ANN de control, el cronómetro corre con el motor y
+  la tabla ordenada + los récords persistentes (localStorage) cierran el
+  ciclo. El canvas conserva la selección clásica intacta en el resto de
+  modos.
+
+---
+Task ID: 16-b
+Agent: full-stack-developer
+Task: UI del Modo Laboratorio de neurobiología (lab-panel.tsx completo:
+preparar el plato, estímulos, knockouts, trazas en vivo, protocolo de
+habituación Rankin 1990 y clima).
+
+Work Log:
+- Leídos worklog (Tasks 13-16a) y PLAN-FASE-2 §4-§5; auditados el contrato
+  SimApi (stimulate/setKnockout/knockoutOn/selectAt/getWorld→spawnAt con
+  genome público) y el motor (knockoutGroups, elegansLabGenome,
+  drosophilaLabGenome, world.traces 10 Hz solo con connectomeView, setMode
+  'lab' = plato limpio a 20 °C y knockouts borrados).
+- Reescrito el shell completo de lab-panel.tsx (6 cards apiladas):
+  1. Preparar el plato: botones grandes gusano/mosca de laboratorio
+     (spawnAt con genoma isogénico, quedan seleccionados), control ANN con
+     selector mini de especie (kind 'ann' SIN genoma), censo en badges y
+     "Retirar todos" (creatures+eggs a 0, deselect refresca).
+  2. Estímulos: grid 2×3 (Vibrate/CloudMoon/Zap/Flame/Apple/Wind) con
+     tooltip del circuito real que activa cada uno (tap = electrodo
+     ALM/AVM/PLM→PVC/AVD Wicks & Rankin 1997; calor = +9 °C/3 s según
+     motor). Epicentro = animal vigilado o centro (640,420); foodDrop a
+     ±80 px aleatorio del centro.
+  3. Knockouts: especie objetivo = la del seleccionado (selector manual
+     bloqueado al seguir) o Gusano/Mosca; grupos como Switches con tooltip
+     desc; banner "⚠ Ablación activa (n)" + "Restaurar todas" (apaga las
+     de ESA especie; nota si la otra conserva) + nota permanente de que
+     aplica a toda la especie del plato.
+  4. Trazas en vivo (ui.traces ≤240 pts): LineChart recharts (patrón de
+     stats-panel) con 4 series — Avante esmeralda, Reversa/Asimetría L/R
+     ámbar (etiqueta según especie), Puesta rose, Picos slate; hints para
+     "sin selección" y "ANN sin trazas"; esqueleto mientras recolecta.
+  5. Protocolo Rankin 1990: "Ejecutar 20 taps (1.6 s entre taps)" →
+     setInterval 1,6 s (se respeta la pausa), amplitud de cada tap medida
+     sobre el buffer de trazas del mundo (ventana 0,6 s sim, línea base
+     pre-tap 0,4 s, máx deflexión fwd/|rev| vs base — la respuesta del
+     gusano es REVERSA, medir solo fwd daría 0), timeout de cierre por
+     ensayo; BarChart amplitud-vs-ensayo en vivo; resumen "Respuesta
+     inicial X → final Y (decae Z %)" con semántica (habituación ≥30 %,
+     débil, sin respuesta, ensayo corto) + cita Rankin/Broster/Wicks 1990
+     + export JSON ({taps, fecha, especie, notas con ablaciones y
+     temperatura, ensayos}); interval SIEMPRE limpiado (useRef + cleanup
+     de useEffect, stop manual, plato vacío, sujeto muerto→epicentro al
+     centro sin romper).
+  6. Clima: slider 16-32 °C (setEnv) con nota 20 °C C. elegans / 25 °C
+     Drosophila.
+- Botón del protocolo deshabilitado sin cerebros biológicos (bioCount
+  sobre getWorld() en cada render) y auto-sujeto al iniciar (primer
+  gusano con conectoma si no hay vigilado).
+- Verificación E2E en navegador (instancia temporal :3100, el :3000
+  gestionado por el sistema estaba detuido): modo Laboratorio carga las
+  6 cards; soltar gusano → seleccionado; ASH on/off → banner y restaurar;
+  protocolo completo 20 taps → "Respuesta inicial 0.004 → final 0.001
+  (decae 78 %)" — habituación REPLICADA sobre el conectoma real; trazas
+  con 4 series correctas; slider [16,32]=20; móvil 375×812 sin overflow;
+  0 errores de página y 0 en consola; VLM confirma layout limpio, tema
+  oscuro y sin azul/indigo.
+- bunx tsc --noEmit limpio en src/ (solo los 2 errores previos de
+  skills/, excluidos) · bun run lint 0 problemas · dev.log sin errores
+  de compilación. Frontera respetada: solo lab-panel.tsx.
+
+Stage Summary:
+- El panel del experimentalista está completo y verificado E2E: se
+  prepara el plato con líneas de laboratorio o ANN de control, se aplican
+  los 6 estímulos clásicos con su circuito documentado, se ablan clases
+  neuronales por especie (banner y restauración), las trazas del cerebro
+  vigilado se dibujan en vivo y el protocolo de habituación al tap
+  ejecuta, mide, grafica y exporta la réplica de Rankin 1990 (78 % de
+  decaimiento medido en vivo) — todo sobre el motor ya calibrado, sin
+  tocar src/lib/sim.
+
+---
+Task ID: 16-c
+Agent: full-stack-developer
+Task: Exportación/importación de cerebros (.neuroevo.json) — Inspector y
+Museo.
+
+Work Log:
+- Leídos worklog (Tasks 13-16b) y PLAN-FASE-2 §7; auditados el contrato
+  SimApi (seedFromRecord siembra 8 individuos reconstruyendo la
+  arquitectura por kind), EvolutionRecordDTO, CreatureView (.weights ES el
+  genoma) y la estructura actual de inspector-panel y museum-panel antes
+  de tocar nada.
+- NUEVO src/components/sim/brain-io.tsx (utilidades + botones reutilizables):
+  tipos BrainFileData/BrainFile y esquema zod del formato «neuroevo-brain»
+  v1 (format/version/kind/species/generation/fitness/genome de 10..200
+  números finitos/traits positivos; meta opcional tolerante) con mensajes
+  de error en español por campo. La longitud del genoma NO se valida contra
+  la arquitectura: rango plausible 10..200 + migrateGenome del motor
+  toleran los genomas 20/25/26 (gusano v1.2→v1.3) y 27 (mosca).
+- Exportación: brainFileFromCreature (inspector; genoma = selected.weights
+  redondeado a 4 decimales) y brainFileFromRecord (museo; espeja la
+  heurística de World.seedFromRecord para registros viejos sin kind).
+  downloadBrainFile → Blob + <a download> con nombre
+  neuroevo-{kind}-{species}-G{gen}-{yyyymmdd-hhmm}.neuroevo.json, devuelve
+  el nombre para el toast y revoca el objectURL tras el clic.
+  <BrainExportButton getBrain label variant size iconOnly title/> con toast
+  de éxito que cita el nombre exacto del archivo descargado.
+- Importación: parseBrainFile (zod, nunca lanza) y toSeedRecord →
+  EvolutionRecordDTO {id:'import-'+Date.now(), name:'Cerebro importado',
+  brain:{weights,traits,kind}} listo para sim.seedFromRecord (env con
+  DEFAULT_ENV solo para satisfacer el tipo: el motor no lo lee al sembrar).
+  <BrainImportButton onParsed .../> con input file oculto
+  (.json,.neuroevo.json), FileReader, tope de 2 MB, reinicio del value para
+  reintentos, toast de error si inválido, prop disabled para degradación.
+- inspector-panel.tsx: sección «Cerebro portátil» (solo con criatura
+  seleccionada) con insignia de arquitectura del contrato («Conectoma
+  C. elegans (300 neuronas)» / «Conectoma Drosophila (2.956 neuronas)» /
+  «ANN de control (131 pesos)»), nº de genes/pesos y botones Exportar /
+  Importar y sembrar (toSeedRecord → onSeed → toast «N individuos
+  sembrados»). Prop opcional onSeed?: (rec) => number: sin ella el botón de
+  importar queda deshabilitado con tooltip explicativo (degradación
+  elegante).
+- museum-panel.tsx: botoncito Download en cada fila de registro (exporta
+  ese cerebro, con title/aria-label) y card al pie «Importar cerebro»
+  (BrainImportButton → toSeedRecord → onSeed ya existente del museo →
+  toast). Funciona también en modo estático (la siembra no depende del
+  backend).
+- page.tsx (cambio autorizado de UNA línea): onSeed={sim.seedFromRecord}
+  en InspectorPanel para que el flujo completo funcione ya, sin tocar nada
+  más de la página.
+- Verificación E2E en navegador (instancia temporal :3100, motor real):
+  exportar del inspector → toast «Cerebro exportado:
+  neuroevo-elegans-worm-G0-20261017-1813.neuroevo.json»; importar un
+  C. elegans G42 → el HUD pasa de G2 a G42 y crece la población; archivo
+  inválido → «No es un archivo de cerebro NeuroEvo: falta la marca
+  «format: neuroevo-brain»»; exportar un registro viejo del museo → kind
+  inferido elegans por longitud de genoma; importar Drosophila G7 (27
+  genes) → «Cerebro importado: 8 individuos sembrados (moscas, G7)»;
+  0 errores de página y 0 en consola; móvil 375×812 sin overflow en
+  inspector y museo (capturas en /home/z/calib/16c-*.png).
+- bunx tsc --noEmit limpio en src/ (solo los 2 errores previos de skills/,
+  excluidos por contrato) · bun run lint 0 problemas · dev.log sin errores
+  de compilación. Frontera respetada: brain-io.tsx nuevo + inspector-panel
+  + museum-panel + UNA línea de page.tsx; arena-panel/lab-panel/sim-canvas
+  (trabajo de 16-a/b) y src/lib/sim/** intactos.
+
+Stage Summary:
+- Los cerebros son portátiles de punta a punta: cualquier criatura
+  seleccionada o registro del Museo se descarga como .neuroevo.json
+  validado (zod, mensajes en español), y cualquier archivo válido se
+  siembra como 8 individuos desde el Inspector o desde el Museo,
+  conservando arquitectura (ANN/elegans/drosophila), generación, aptitud y
+  rasgos — verificado E2E sobre el motor real, sin tocar una línea de
+  src/lib/sim.

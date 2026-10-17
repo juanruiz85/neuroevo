@@ -166,6 +166,7 @@ export default function Home() {
                   selected={ui.selected}
                   onFollow={(s: Species) => sim.followRandom(s)}
                   onRelease={sim.deselect}
+                  onSeed={sim.seedFromRecord}
                 />
               </TabsContent>
               <TabsContent value="datos" className="mt-3">
