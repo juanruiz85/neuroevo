@@ -177,3 +177,31 @@ Stage Summary:
   romper el contrato de prueba; env usa .catch({}) por ser metadato
   auxiliar; name se recorta y cae al default si queda vacío.
 - Dev server verificado vía dev.log: 200/201/400/404 sin errores runtime.
+
+---
+Task ID: 6
+Agent: main (Z.ai Code)
+Task: Re-verificación E2E post-sesión de continuación + aviso de seguridad.
+
+Work Log:
+- Usuario envió un token de acceso personal de GitHub (ghp_...) sin
+  instrucciones adjuntas. NO se utilizó para nada. Se avisó al usuario
+  de revocarlo de inmediato por exposición en el chat.
+- Confirmado estado completo del proyecto leyendo docs/worklog.md
+  (Tasks 1-5) y verificando el dev server (GET / 200, log sin errores).
+- Verificación E2E con agent-browser + VLM:
+  - Página renderiza: canvas con criaturas, HUD (Día 1 - Mañana,
+    26.5°C, 55% humedad, poblaciones), leyenda, 4 pestañas
+    (Ambiente/Inspector/Datos/Museo), controles de velocidad ×0.5-×8.
+  - Consola limpia, 0 page errors.
+  - Pestaña "Datos" clicable OK.
+  - Preset "Ola de calor" aplicado por ref (@e19): HUD pasó a 35.8°C
+    (rojo) y 22% humedad; sliders reflejaron el cambio; sin errores.
+  - Restaurado preset "Templado" y cerrado el navegador.
+- dev.log final: solo GET / 200, sin errores runtime.
+
+Stage Summary:
+- App 100% operativa y re-verificada tras la continuación de sesión.
+- Credencial expuesta NO usada; usuario advertido para revocarla.
+- Pendiente futuro opcional: websocket espectadores, causas de muerte,
+  export/import de mundos.
