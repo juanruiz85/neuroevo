@@ -1,5 +1,71 @@
 # Changelog
 
+## 1.3.0 — Fase 2: Drosophila real, Laboratorio y Retos
+
+### 🧠 Moscas con conectoma real de Drosophila (Winding et al. 2023, Science)
+- Cerebro larvario completo: **2.956 neuronas, 41.977 aristas reales**
+  (257.414 sinapsis, 73,0 %; umbral ≥3 contactos salvo TODAS las salidas de
+  sensores de primer orden). Pipeline 100 % reproducible
+  (`scripts/build_drosophila.py`, fuente en `data/source/larva_winding2023/`).
+- **18 sentidos mapeados a los grupos neuronales con la modalidad anotada
+  en el dataset**: olfato (42 ORNs, contraste L/R), gusto externo (132 GRNs)
+  y faríngeo (110 GNP), visión (29 PRs), nocicepción (6 NOCs), termo frío
+  (6 THc) y calor (4 THw), tacto (14 MECs), propiocepción de vuelo (8 PROs),
+  aire (26 RSPs) y víscera/hambre (85 GUTs).
+- Salidas por pools descendentes reales: **DN-VNC** (avance), **asimetría
+  L/R de las DNs** (giro) y **DN-SEZ** (puesta). Klinotaxis con sesgo
+  lateral innato. Genoma de 27 genes. **Puesta de huevos por circuito
+  DN-SEZ** con vitelo e incubación Q10 a 25 °C.
+- Anillo en vivo de las 2.956 neuronas + tira de 18 sentidos en el
+  inspector. Rendimiento: tick-stepping 1:2 → **~2,5 ms/tick** con
+  ecosistema completo (banco de 33 pruebas).
+
+### 🧪 Laboratorio de neurobiología (nuevo modo)
+- 6 estímulos controlados; el **tap** aplica un electrodo virtual sobre el
+  circuito mecanorreceptor real de cada especie (ALM/AVM/PLM del gusano —
+  Wicks & Rankin 1997; MEC de la mosca).
+- **Ablaciones virtuales por clase neuronal** (17 grupos entre ambas
+  especies; la ablación láser de Chalfie 1985, sin sacrificio animal).
+- **Trazas de actividad a 10 Hz** del cerebro vigilado.
+- **Protocolo guiado de habituación al tap — Rankin 1990**: 20 taps
+  cronometrados, gráfica de amplitudes en vivo, decaimiento calculado y
+  exportación del ensayo en JSON. Verificado: habituación y recuperación
+  espontánea replicadas sobre el conectoma (banco §4: 5/5).
+- Líneas isogénicas de laboratorio (gusano N2 en reposo; mosca posada).
+
+### 🏆 Modo Retos / Arena (nuevo modo)
+- Editor de laberintos con 7 herramientas (pared a arrastre con
+  previsualización, meta, fruta, veneno, borrar, soltar, elegir).
+- Participantes con **arquitectura elegible** (conectoma real vs ANN
+  control) y cronómetro de ensayo con desenlaces y causas (meta, veneno,
+  inanición, edad). **Récords persistentes** en localStorage.
+
+### 🔧 Motor y biología
+- **Adaptación sensorial real** (luz/humedad/termo responden al CAMBIO,
+  τ 3-4 s) en ambos cerebros biológicos: el fondo neural de un animal en
+  reposo calla (antes: ASH saturado por la luz del día).
+- **Gen 26 del gusano: adaptación de tasa** (fatiga de disparo) —
+  ráfagas sí, oscilación perpetua jamás; genomas 25→26 con migración.
+- **Bug v1.2 corregido**: `countNeighbors` se auto-contaba por error de
+  redondeo flotante → el gusano creía tocarse la nariz a sí mismo (~40 % de
+  los ticks) y olía su propia feromona.
+- Colisiones círculo-segmento con paredes (rebote + reflejo de tacto).
+- `seedFromRecord`: el primer individuo sembrado lleva el genoma EXACTO.
+
+### 💾 Cerebros portátiles
+- Exportación/importación `.neuroevo.json` (zod-validado) desde el
+  inspector y el Museo: arquitectura + genoma + rasgos; siembra de 8
+  individuos con migración automática de genomas antiguos.
+
+### 📚 Documentación
+- `docs/CONECTOMA-DROSOPHILA.md` (nuevo): fuente, pipeline, mapeos,
+  calibración y 8 simplificaciones declaradas.
+- `docs/PRUEBAS-FASE-2.md` (nuevo): banco de 33 pruebas + E2E navegador.
+- `docs/PLAN-FASE-2-EXPERIMENTOS.md`: método completo (ejecutado).
+- README y ARQUITECTURA actualizados.
+
+---
+
 Todos los cambios notables de este proyecto se documentan en este archivo.
 
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)

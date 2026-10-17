@@ -19,6 +19,11 @@ import {
   type SensorChannel,
   type SensorGroup,
 } from '@/lib/sim'
+import {
+  FLY_GROUP_LABEL,
+  FLY_SENSOR_CHANNELS,
+  type FlySensorChannel,
+} from '@/lib/sim/connectome/fly-sensors'
 import type { CreatureView } from '@/lib/sim/types'
 import { cn } from '@/lib/utils'
 
@@ -41,7 +46,20 @@ const SIGNED: ReadonlySet<number> = new Set([
   CH.FOOD_DELTA,
 ])
 
-export function SensorStrip({ creature }: { creature: CreatureView }) {
+export function SensorStrip({
+  creature,
+  variant = 'worm',
+}: {
+  creature: CreatureView
+  variant?: 'worm' | 'fly'
+}) {
+  const isFly = variant === 'fly'
+  const channels: readonly (SensorChannel & { ch?: number })[] | readonly FlySensorChannel[] =
+    isFly ? FLY_SENSOR_CHANNELS : SENSOR_CHANNELS
+  const groupColor = isFly ? SENSOR_GROUP_COLOR : SENSOR_GROUP_COLOR
+  const groupLabel = isFly ? FLY_GROUP_LABEL : SENSOR_GROUP_LABEL
+  const indexOf = (i: number, ch: (SensorChannel & { ch?: number }) | FlySensorChannel) =>
+    isFly ? (ch as FlySensorChannel).ch : i
   return (
     <div>
       <div className="mb-1 flex items-center justify-between gap-2">
@@ -49,33 +67,38 @@ export function SensorStrip({ creature }: { creature: CreatureView }) {
           Sentidos en vivo
         </p>
         <span className="font-mono text-[9px] text-muted-foreground">
-          17 canales → neuronas reales
+          {isFly ? '18 canales → neuronas reales' : '17 canales → neuronas reales'}
         </span>
       </div>
       <div
         className="nice-scroll max-h-72 overflow-y-auto pr-1"
         role="list"
-        aria-label="Canales sensoriales del gusano en vivo"
+        aria-label={`Canales sensoriales ${isFly ? 'de la mosca' : 'del gusano'} en vivo`}
       >
         {GROUP_ORDER.map((g) => {
-          const rows = SENSOR_CHANNELS.map((ch, i) => ({ ch, i })).filter(
-            (r) => r.ch.group === g,
-          )
+          const rows = channels
+            .map((ch, i) => ({ ch, idx: indexOf(i, ch) }))
+            .filter((r) => r.ch.group === g)
           if (rows.length === 0) return null
           return (
-            <div key={g} role="group" aria-label={SENSOR_GROUP_LABEL[g]}>
+            <div key={g} role="group" aria-label={groupLabel[g]}>
               <p
                 className="flex items-center gap-1.5 px-0.5 pb-0.5 pt-1 text-[9px] font-semibold uppercase tracking-wider"
-                style={{ color: SENSOR_GROUP_COLOR[g] }}
+                style={{ color: groupColor[g] }}
               >
                 <span
                   className="size-1.5 rounded-full"
-                  style={{ backgroundColor: SENSOR_GROUP_COLOR[g] }}
+                  style={{ backgroundColor: groupColor[g] }}
                 />
-                {SENSOR_GROUP_LABEL[g]}
+                {groupLabel[g]}
               </p>
-              {rows.map(({ ch, i }) => (
-                <SensorRow key={ch.key} channel={ch} index={i} value={creature.inputs[i] ?? 0} />
+              {rows.map(({ ch, idx }) => (
+                <SensorRow
+                  key={ch.key}
+                  channel={ch}
+                  index={idx}
+                  value={creature.inputs[idx] ?? 0}
+                />
               ))}
             </div>
           )
@@ -90,7 +113,7 @@ function SensorRow({
   index,
   value,
 }: {
-  channel: SensorChannel
+  channel: (SensorChannel & { ch?: number }) | FlySensorChannel
   index: number
   value: number
 }) {

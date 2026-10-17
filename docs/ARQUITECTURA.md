@@ -156,6 +156,24 @@ plano con esta distribución:
 | `[104, 128)` | pesos oculta→salida (`w2[h·3 + o]`) |
 | `[128, 131)` | biases de las 3 salidas |
 
+### 2.3 Conectoma real de *Drosophila* (`connectome/drosophila.ts`, Fase 2)
+
+Las moscas usan el **cerebro larvario completo** (Winding et al. 2023,
+*Science*): 2.956 neuronas, 41.977 aristas reales (257.414 sinapsis, 73,0 %),
+generado por `scripts/build_drosophila.py` desde los CSV fuente. Misma
+familia LIF que el gusano, sin gap junctions (la fuente no los reporta) y
+con tres particularidades (ver `docs/CONECTOMA-DROSOPHILA.md`):
+
+- **Tick-stepping 1:2**: cada cerebro alterna integración sensorial barata
+  (typed arrays) y disparo completo (fuga leak²) — resolución efectiva
+  15 Hz, coste total del ecosistema ~2,5 ms/tick.
+- **Mapeo sensorial por modalidad anotada** (18 canales → grupos ORN/GRN/
+  GNP/PR/NOC/THc/THw/MEC/PRO/RSP/GUT) y **motor por pools descendentes**
+  (DN-VNC → avance; asimetría L/R de DNs → giro; DN-SEZ → puesta).
+- **Plasticidad**: depresión homosináptica por uso (mecano/luz) por
+  individuo + habituación conductual; knockouts (`setSilenced`) y electrodo
+  virtual (`stimulate`) para el Laboratorio.
+
 ### Entradas (sensores)
 
 | # | Sensor | Rango | Notas |
@@ -345,6 +363,27 @@ invierten con `screenToWorld`). Capas, en orden:
   - **Moscón (ANN)**: red 12→8→3 con nodos coloreados por activación (verde
     positivo / rojo negativo), aristas por peso×activación y un anillo dorado
     cuando el impulso reproductivo supera 0.55.
+
+## 9bis. Tres modos de simulación (v1.3.0)
+
+El mismo motor `World` con tres configuraciones (`SimMode`):
+
+- **Ecosistema**: población inicial, clima, reproducción y evolución.
+- **Arena/Retos** (`walls`, `goal`, cronómetro): paredes con colisión
+  círculo-segmento y rebote (activa el reflejo de tacto real), meta,
+  desenlaces con causa y récords en localStorage. Sin spawns ni
+  reproducción (protocolo limpio).
+- **Laboratorio** (plato de agar 20 °C): estímulos programables
+  (`stimulate()`), el **tap** como electrodo virtual sobre el circuito
+  mecanorreceptor real de cada especie, knockouts por clase
+  (`setKnockout`, índices reales vía `connectome/knockouts.ts`), trazas
+  10 Hz del cerebro seleccionado y líneas isogénicas de laboratorio.
+
+El genoma del gusano pasó de 25 a **26 genes** (adaptación de tasa) y el de
+la mosca a **27** (sesgo lateral), con migración automática de registros
+antiguos. Los cerebros son portátiles: `.neuroevo.json`
+(`brain-io.tsx`, zod-validado) exporta arquitectura+genoma+rasgos y
+`seedFromRecord` siembra 8 individuos (el primero con el genoma EXACTO).
 
 ## 10. Datos y API (Museo de la Evolución)
 

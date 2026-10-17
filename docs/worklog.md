@@ -1026,3 +1026,70 @@ Stage Summary:
   conservando arquitectura (ANN/elegans/drosophila), generación, aptitud y
   rasgos — verificado E2E sobre el motor real, sin tocar una línea de
   src/lib/sim.
+
+---
+Task ID: 17
+Agent: main (Z.ai Code)
+Task: Banco de pruebas riguroso (33 comprobaciones) + E2E de navegador de
+los tres modos + soporte del inspector para el cerebro Drosophila.
+
+Work Log:
+- BANCO FORMAL (/home/z/calib/banco-fase2.ts, 33 pruebas, docs/PRUEBAS-
+  FASE-2.md): integridad del conectoma (5), dinámica LIF Drosophila (6),
+  escape looming + knockout PR (2), circuito del tap Rankin (5), arena (4),
+  roundtrip export/import (5), rendimiento + ecosistema 15 min (6).
+  Resultado final: 33 ✓ / 0 ✗.
+- Correcciones de método durante el banco: (1) seedFromRecord ahora siembra
+  el PRIMER individuo con el genoma EXACTO (fiel al archivo importado) y
+  los otros 7 con mutación; (2) drosophilaLabGenome: mosca POSADA (tónico
+  0.15) — el acelerón de escape del looming quedó nítido (13→43 px/s, ciega
+  12→12); (3) métrica del escape no direccional (el salto del circuito
+  visual es omnidireccional); (4) el banco del tap y del escape sin el
+  azúcar del plato (contaminación olfativa).
+- GAP DE UI DETECTADO Y CERRADO: el inspector no tenía vista para el
+  cerebro Drosophila. Añadido: SensorStrip parametrizado (variant 'fly'
+  con los 18 canales de fly-sensors.ts), BrainView con rama drosophila y
+  anillo parametrizado por conectoma (RING_DATASETS: 2.956 neuronas en 3
+  sectores, puntos 1.5 px, claves ORN/GRN/GNP/PR/NOC/THc/THw/MEC/PRO/RSP/
+  GUT/DNV/DNS/PN/MBON, crédito '41.977 sinapsis · Winding 2023'),
+  inspector-panel con badges/descripción/tira de la mosca.
+- E2E navegador (agent-browser + VLM, 0 errores de consola/página):
+  ecosistema con selector de modos y huevos de mosca a los 7 s; inspector
+  Drosophila verificado por VLM (anillo 3 sectores, etiquetas ORN/GRN/PR/
+  DNV, salidas en vivo, 18 sentidos reales, cerebro portátil de 27 genes);
+  LABORATORIO: gusano N2 + trazas 10 Hz + PROTOCOLO RANKIN EN VIVO
+  ('Respuesta inicial 0.006 → final 0.000, decae 100 %') con export JSON;
+  RETOS: meta con clic, soltar mosca Drosophila ('Conectoma real · 2.956
+  neuronas'), ensayo cronometrado en vivo, desenlace con causa (inanición
+  01:01.6) y récord archivado en localStorage; móvil 375×812 sin overflow.
+- Capturas para docs: laboratorio-rankin.png, retos-arena.png,
+  cerebro-drosophila.png, inspector-drosophila.png (docs/screenshots/).
+
+Stage Summary:
+- 33/33 headless + E2E completo de los 3 modos: la Fase 2 está verificada
+  de punta a punta. El inspector ya muestra ambos conectomas reales.
+
+---
+Task ID: 18
+Agent: main (Z.ai Code)
+Task: Documentación completa de la Fase 2, CHANGELOG 1.3.0, publicación.
+
+Work Log:
+- NUEVO docs/PRUEBAS-FASE-2.md: banco de 33 pruebas con resultados y notas
+  de método + E2E navegador + lecciones de la calibración.
+- NUEVO docs/CONECTOMA-DROSOPHILA.md: referencia científica completa
+  (fuente Winding 2023, pipeline reproducible, mapeos sensorial/motor con
+  las tablas de grupos reales, genoma de 27 genes, tick-stepping,
+  plasticidad, línea de laboratorio y 8 simplificaciones declaradas).
+- README v1.3.0: características (conectoma Drosophila, laboratorio,
+  retos, cerebros portátiles, rendimiento 2,5 ms/tick), tabla de interfaz
+  con 4 capturas nuevas, sección de la mosca reescrita, 4 experimentos
+  nuevos (Rankin, ceguera, bio-vs-azar en laberinto, ingeniería de
+  cerebros).
+- docs/FASE-2-DROSOPHILA.md marcada COMPLETADA con el contraste
+  plan-original vs resultado-real. ARQUITECTURA.md: §2.3 (drosophila) y
+  §9bis (tres modos + portabilidad). CHANGELOG 1.3.0. package.json 1.3.0.
+- lint 0 · tsc 0 · banco 33/33 tras todos los cambios.
+
+Stage Summary:
+- v1.3.0 lista para publicar: push de main + tag v1.3.0 → Pages + Release.

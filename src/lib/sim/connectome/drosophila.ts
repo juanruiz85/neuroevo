@@ -826,8 +826,10 @@ export function getDrosophilaIndicesByGroup(
  */
 export function drosophilaLabGenome(rng?: Rng): Float32Array {
   const g = randomGenome(rng ?? new Rng())
-  g[G_TONIC] = 0.3
-  g[0] = 0.8
+  // Mosca POSADA (como el animal del experimento de escape): el drive de
+  // vuelo queda por debajo del umbral; el looming la hace despegar.
+  g[G_TONIC] = 0.15
+  g[0] = 0.7
   g[G_ACH] = 1.6
   g[G_VTH] = 1.18
   return g

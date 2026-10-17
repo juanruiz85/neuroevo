@@ -1,13 +1,10 @@
 'use client'
 
 // Visualización en vivo del cerebro de la criatura seleccionada.
-//  · Moscas (ANN): 12 sensores → 8 ocultas → 3 motores; el brillo de cada
-//    nodo es su activación y el color/grosor de cada arista, el peso.
-//  · Gusanos (C. elegans): conectoma biológico real, en dos vistas con
-//    pestañas — "Circuito vivo" (flujo sensorial → comando → motor con
-//    partículas y riel de sentidos) y "Anillo" (300 neuronas en tres
-//    sectores por clase, brillo por potencial de membrana y destello
-//    blanco al disparar, LIF).
+//  · Moscas ANN (control): 12 sensores → 8 ocultas → 3 motores.
+//  · Gusanos (C. elegans): conectoma real — "Circuito vivo" y "Anillo".
+//  · Moscas (Drosophila, Fase 2): conectoma real del cerebro larvario
+//    (2.956 neuronas, Winding 2023) — "Anillo" con sus 41.977 sinapsis.
 
 import { useEffect, useRef, useState } from 'react'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -22,14 +19,26 @@ import {
   NN_OUT,
   OUTPUT_LABELS,
 } from '@/lib/sim'
+import {
+  DROSOPHILA_CLASSES,
+  DROSOPHILA_NAMES,
+} from '@/lib/sim/connectome/drosophila'
 import type { CreatureView } from '@/lib/sim/types'
 
 export function BrainView({ creature }: { creature: CreatureView }) {
   const [view, setView] = useState('circuito')
   const isElegans = creature.brainKind === 'elegans' && creature.connectome != null
+  const isDrosophila = creature.brainKind === 'drosophila' && creature.connectome != null
 
-  // Las moscas mantienen su ANN intacta; los gusanos ganan dos vistas.
-  if (!isElegans) return <AnnCanvas creature={creature} />
+  // Las moscas ANN mantienen su vista clásica; los gusanos ganan dos
+  // vistas; las moscas Drosophila (conectoma real de 2.956) muestran su
+  // anillo propio.
+  if (!isElegans && !isDrosophila) return <AnnCanvas creature={creature} />
+  if (isDrosophila) {
+    return (
+      <FlyRingCanvas creature={creature} />
+    )
+  }
 
   return (
     <Tabs value={view} onValueChange={setView} className="w-full">
@@ -81,6 +90,36 @@ function AnnCanvas({ creature }: { creature: CreatureView }) {
   )
 }
 
+// Canvas del anillo del conectoma DROSOPHILA (2.956 neuronas, Fase 2).
+function FlyRingCanvas({ creature }: { creature: CreatureView }) {
+  const ref = useRef<HTMLCanvasElement>(null)
+
+  useEffect(() => {
+    const canvas = ref.current
+    if (!canvas) return
+    const parent = canvas.parentElement
+    if (!parent) return
+    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const w = Math.max(200, Math.round(parent.clientWidth))
+    const h = 340
+    if (canvas.width !== Math.round(w * dpr) || canvas.height !== Math.round(h * dpr)) {
+      canvas.width = Math.round(w * dpr)
+      canvas.height = Math.round(h * dpr)
+    }
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+    drawConnectomeRing(ctx, w, h, dpr, creature, 'drosophila')
+  })
+
+  return (
+    <canvas
+      ref={ref}
+      className="block h-[340px] w-full"
+      aria-label="Conectoma de Drosophila en tiempo real"
+    />
+  )
+}
+
 // Canvas del anillo del conectoma (vista clásica de los gusanos).
 function RingCanvas({ creature }: { creature: CreatureView }) {
   const ref = useRef<HTMLCanvasElement>(null)
@@ -99,7 +138,7 @@ function RingCanvas({ creature }: { creature: CreatureView }) {
     }
     const ctx = canvas.getContext('2d')
     if (!ctx) return
-    drawConnectome(ctx, w, h, dpr, creature)
+    drawConnectomeRing(ctx, w, h, dpr, creature, 'elegans')
   })
 
   return (
@@ -252,13 +291,60 @@ const KEY_NEURONS = new Set([
   'HSNL', 'RMDDL', 'RMDVL',
 ])
 
-// Ángulo de cada neurona: tres sectores contiguos por clase (rad).
-const NEURON_ANGLE: number[] = (() => {
+// ─── Anillo parametrizado por conectoma (elegans | drosophila) ─────────────
+// El mismo algoritmo de sectores por clase para los dos cerebros reales.
+
+interface RingDataset {
+  names: string[]
+  classes: (0 | 1 | 2)[]
+  keyNeurons: Set<string>
+  credit: string
+  /** Radio del punto (los cerebros grandes usan puntos menores). */
+  dot: number
+}
+
+/** Claves Drosophila: el primer nombre de cada familia funcional. */
+const FLY_KEY_NEURONS: Set<string> = (() => {
+  const prefixes = [
+    'ORN', 'GRN', 'GNP', 'PR-', 'NOC', 'THc', 'THw', 'MEC', 'PRO', 'RSP',
+    'GUT', 'DNV', 'DNS', 'PN-', 'MBON',
+  ]
+  const out = new Set<string>()
+  for (const pre of prefixes) {
+    const found = DROSOPHILA_NAMES.find((n) => n.startsWith(pre))
+    if (found) out.add(found)
+  }
+  return out
+})()
+
+const RING_DATASETS: Record<'elegans' | 'drosophila', RingDataset> = {
+  elegans: {
+    names: ELEGANS_NAMES,
+    classes: ELEGANS_CLASSES,
+    keyNeurons: KEY_NEURONS,
+    credit: `${ELEGANS_INFO.chemical + ELEGANS_INFO.gapJunctions} sinapsis · OpenWorm`,
+    dot: 2.5,
+  },
+  drosophila: {
+    names: DROSOPHILA_NAMES,
+    classes: DROSOPHILA_CLASSES,
+    keyNeurons: FLY_KEY_NEURONS,
+    credit: '41.977 sinapsis · Winding 2023',
+    dot: 1.5,
+  },
+}
+
+// Ángulo de cada neurona: tres sectores contiguos por clase (rad), por kind.
+const NEURON_ANGLES = new Map<'elegans' | 'drosophila', number[]>()
+function neuronAngles(kind: 'elegans' | 'drosophila'): number[] {
+  let angles = NEURON_ANGLES.get(kind)
+  if (angles) return angles
+  const { names, classes } = RING_DATASETS[kind]
   const byClass: number[][] = [[], [], []]
-  ELEGANS_NAMES.forEach((_, i) => byClass[ELEGANS_CLASSES[i]].push(i))
+  names.forEach((_, i) => byClass[classes[i]].push(i))
   const sectorStart = [-Math.PI * (165 / 180), -Math.PI * (25 / 180), Math.PI * (100 / 180)]
   const sectorWidth = [Math.PI * (150 / 180), Math.PI * (110 / 180), Math.PI * (100 / 180)]
-  const angles = new Array<number>(ELEGANS_NAMES.length)
+  angles = new Array<number>(names.length)
   for (let cls = 0; cls < 3; cls++) {
     const list = byClass[cls]
     list.forEach((neuronIdx, k) => {
@@ -266,23 +352,29 @@ const NEURON_ANGLE: number[] = (() => {
       angles[neuronIdx] = sectorStart[cls] + t * sectorWidth[cls]
     })
   }
+  NEURON_ANGLES.set(kind, angles)
   return angles
-})()
+}
 
-function drawConnectome(
+function drawConnectomeRing(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
   dpr: number,
   c: CreatureView,
+  kind: 'elegans' | 'drosophila',
 ): void {
+  const DATA = RING_DATASETS[kind]
+  const NAMES = DATA.names
+  const CLASSES = DATA.classes
+  const ANGLES = neuronAngles(kind)
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
   ctx.clearRect(0, 0, w, h)
 
   const con = c.connectome!
   const v = con.v
   const s = con.s
-  const n = ELEGANS_NAMES.length
+  const n = NAMES.length
 
   // Composición: anillo de neuronas a la izquierda, salidas motoras a la derecha.
   // outX deja ~92 px a la derecha para la etiqueta más ancha ("Reproducir 1.00").
@@ -292,11 +384,12 @@ function drawConnectome(
   const R = Math.max(46, Math.min(cx - 24, h / 2 - 40))
 
   // Neuronas
+  const dot = DATA.dot
   for (let i = 0; i < n; i++) {
-    const ang = angleOf(i)
+    const ang = ANGLES[i] ?? 0
     const x = cx + Math.cos(ang) * R
     const y = cy + Math.sin(ang) * R
-    const [r, g, b] = CLASS_COLOR[ELEGANS_CLASSES[i]]
+    const [r, g, b] = CLASS_COLOR[CLASSES[i]]
     const pot = Math.min(1, (v[i] ?? 0) / 1.4) // potencial normalizado
     // Brillo base alto: en reposo la mayoría de neuronas están sub-umbral
     // y con alfa bajo serían invisibles; el potencial añade el brillo extra.
@@ -304,16 +397,16 @@ function drawConnectome(
     if (s[i]) {
       // Pico: destello blanco + halo del color de su clase.
       ctx.beginPath()
-      ctx.arc(x, y, 6.5, 0, Math.PI * 2)
+      ctx.arc(x, y, dot + 4, 0, Math.PI * 2)
       ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.32)`
       ctx.fill()
       ctx.beginPath()
-      ctx.arc(x, y, 3, 0, Math.PI * 2)
+      ctx.arc(x, y, Math.max(2.4, dot), 0, Math.PI * 2)
       ctx.fillStyle = 'rgba(255, 255, 255, 0.96)'
       ctx.fill()
     } else {
       ctx.beginPath()
-      ctx.arc(x, y, 2.5, 0, Math.PI * 2)
+      ctx.arc(x, y, dot, 0, Math.PI * 2)
       ctx.fillStyle = `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(3)})`
       ctx.fill()
     }
@@ -336,13 +429,13 @@ function drawConnectome(
   ctx.textAlign = 'center'
   ctx.fillStyle = 'rgba(203, 213, 225, 0.75)'
   for (let i = 0; i < n; i++) {
-    const name = ELEGANS_NAMES[i]
-    if (!KEY_NEURONS.has(name)) continue
-    const ang = NEURON_ANGLE[i]
+    const name = NAMES[i]
+    if (!DATA.keyNeurons.has(name)) continue
+    const ang = ANGLES[i] ?? 0
     const x = cx + Math.cos(ang) * (R - 13)
     const y = cy + Math.sin(ang) * (R - 13)
     if (s[i]) {
-      const [r, g, b] = CLASS_COLOR[ELEGANS_CLASSES[i]]
+      const [r, g, b] = CLASS_COLOR[CLASSES[i]]
       ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 1)`
     }
     ctx.fillText(name, x, y)
@@ -356,7 +449,7 @@ function drawConnectome(
   ctx.fillStyle = 'rgba(148, 163, 184, 0.9)'
   ctx.fillText(`picos ${spikes}/${n}`, 10, h - 12)
   ctx.textAlign = 'right'
-  ctx.fillText(`${ELEGANS_INFO.chemical + ELEGANS_INFO.gapJunctions} sinapsis · OpenWorm`, w - 10, h - 12)
+  ctx.fillText(DATA.credit, w - 10, h - 12)
 
   // Salidas motoras (misma convención que la vista ANN).
   const nodeY = (o: number) => h / 2 - 46 + o * 46
@@ -382,6 +475,3 @@ function drawConnectome(
   }
 }
 
-function angleOf(i: number): number {
-  return NEURON_ANGLE[i] ?? 0
-}

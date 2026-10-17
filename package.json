@@ -1,6 +1,6 @@
 {
   "name": "neuroevo",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "description": "Ecosistema neuronal evolutivo: moscas y gusanos con redes neuronales evolucionan bajo clima dinámico (Next.js 16 + Canvas 2D + Prisma)",
   "private": true,
   "scripts": {

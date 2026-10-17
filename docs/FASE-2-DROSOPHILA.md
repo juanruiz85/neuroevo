@@ -1,9 +1,20 @@
 # Fase 2 — Conectoma de *Drosophila melanogaster* (hoja de ruta)
 
-> Estado: **planificada**. La Fase 1 (conectoma real de *C. elegans* en
-> los gusanos) está completa y el patrón Strategy (`IBrainAdapter`)
-> mantiene el Canvas, el GA y el Museo ajenos a la arquitectura neuronal.
-> Integrar el cerebro de la mosca **solo tocará la fábrica de cerebros**.
+> Estado: **COMPLETADA (v1.3.0)**. La Fase 2 se ejecutó según
+> `docs/PLAN-FASE-2-EXPERIMENTOS.md` (método riguroso). Resumen del
+> resultado real frente a este plan original:
+>
+> - ✓ `DrosophilaBrain implements IBrainAdapter` — con el conectoma larvario
+>   COMPLETO de Winding et al. 2023 (2.956 neuronas) embebido (684 KB), no
+>   una reducción a 2-5k unidades: la escala la resuelve el tick-stepping
+>   (ver CONECTOMA-DROSOPHILA.md §6). No hizo falta neuprint ni credenciales.
+> - ✓ `FACTORIES.fly` → conectoma real; la ANN queda como control sembrable.
+> - ✓ Mapeo sensorial/motor por modalidades anotadas y pools DN reales.
+> - ✓ Vista del inspector (anillo parametrizado de 2.956 + 18 sentidos).
+> - ✓ Rendimiento: 2,5 ms/tick con ecosistema completo (objetivo era <4 ms
+>   con 60 moscas; el balance real estabiliza ~15-20 moscas + ~70 gusanos).
+> - extras no planeados: Laboratorio con Rankin 1990 replicado, modo Retos,
+>   cerebros portátiles, adaptación sensorial y bug v1.2 corregido.
 
 ---
 

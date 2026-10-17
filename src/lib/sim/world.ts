@@ -1169,7 +1169,10 @@ export class World {
     }
     for (let i = 0; i < n; i++) {
       const brain = makeBrain()
-      brain.mutate(this.rng, 0.05, 0.2)
+      // El PRIMER individuo lleva el genoma EXACTO (fiel al archivo
+      // importado / registro del Museo); el resto trae la variación de
+      // la siembra evolutiva.
+      if (i > 0) brain.mutate(this.rng, 0.05, 0.2)
       this.creatures.push(
         new Creature({
           species: rec.species,

@@ -43,23 +43,27 @@ observar (y documentar) cómo evoluciona cada especie para adaptarse.
 
 ## ✨ Características
 
-- 🪱 **Cerebro biológico real**: los gusanos simulan el **conectoma de
-  *C. elegans*** — 300 neuronas y 4.731 sinapsis reales de OpenWorm bajo un
-  modelo LIF, con **17 sentidos** mapeados a neuronas reales (AFD termo, ASE
-  gusto, ASH luz/nariz, PLM cola, DVA propiocepción, ADL feromona…).
-- 🪰 **Redes neuronales evolutivas**: las moscas usan una ANN 12 → 8 → 3 con
-  131 pesos sinápticos que se heredan y mutan (control experimental de la
-  Fase 2: el conectoma de *Drosophila*).
+- 🪱 **Gusano con conectoma real**: *C. elegans* — 300 neuronas y 4.731
+  sinapsis reales de OpenWorm bajo un modelo LIF, con **17 sentidos**
+  mapeados a neuronas reales (AFD termo, ASE gusto, ASH luz/nariz, PLM cola,
+  DVA propiocepción, ADL feromona…).
+- 🪰 **Mosca con conectoma real (Fase 2)**: el cerebro larvario completo de
+  *Drosophila melanogaster* (**Winding et al. 2023, Science**): 2.956
+  neuronas, 41.977 sinapsis, **18 sentidos** mapeados a los grupos neuronales
+  anotados con cada modalidad real (42 ORNs olfativas, 132 GRNs gustativas,
+  29 PRs visuales, 85 GUT viscerales, 14 MEC táctiles…) y salidas por los
+  pools descendentes reales (DN-VNC avance, asimetría L/R giro, DN-SEZ
+  puesta). La ANN 12→8→3 queda como **control experimental** sembrable.
 - 🪰🪱 **Dos especies con nichos distintos**: las moscas ven de día y comen
   fruta; los gusanos "huelen" con la humedad y comen detritos. Ambos compiten
   por el azúcar.
 - 🌦️ **Clima dinámico**: el frío reduce el voltaje de sus neuronas (se
   adormecen — Q10 en los gusanos), el calor quema energía, la lluvia genera
   comida para los gusanos y la noche ciega a las moscas.
-- 🧬 **Evolución medible**: en los gusanos la selección natural ajusta la
-  neuromodulación del conectoma (25 genes: ganancias de los 17 sentidos,
-  escalas ACh/GABA/Glu, τ, umbral…); en las moscas, los 131 pesos de su ANN.
-  Generaciones, linajes y gráficas de población y genética.
+- 🧬 **Evolución medible**: la selección natural ajusta la **neuromodulación**
+  del conectoma, nunca su estructura — gusanos: 26 genes (17 sentidos + escalas
+  ACh/GABA/Glu + dinámica LIF + fatiga de disparo); moscas: 27 genes. La ANN
+  control evoluciona sus 131 pesos. Generaciones, linajes y gráficas en vivo.
 - 🧬 **Ciclo de vida real**: huevo → L1 → L2 → L3 → L4 → adulto con
   duraciones del nematodo (1 s ≈ 1 h a 20 °C), desarrollo con Q10
   térmica, larvas que crecen de verdad y senescencia adulta. Con hambruna,
@@ -75,26 +79,47 @@ observar (y documentar) cómo evoluciona cada especie para adaptarse.
   pools motores con las sinapsis reales animadas, partículas y estado
   conductual), el anillo del conectoma y los **sentidos dibujados sobre el
   propio gusano** (olfato, fotofobia, tacto, propiocepción, feromona).
+- 🥚 **Huevos para todos**: las moscas también ponen huevos por su circuito
+  DN-SEZ (vitelo, incubación con Q10 propia de 25 °C) — la ANN control
+  conserva el brote directo clásico.
+- 🧪 **Laboratorio de neurobiología (Fase 2)**: estímulos controlados (golpe
+  al plato con electrodo virtual sobre el circuito mecanorreceptor REAL,
+  sombra que crece, flash, pulso de calor, gota de comida, chorro de aire),
+  **ablaciones virtuales por clase neuronal** (ASH, comando de reversa,
+  ORNs, PRs, DN-VNC…) y **trazas de actividad a 10 Hz**. Incluye el
+  **protocolo guiado de habituación al tap — Rankin 1990** replicado sobre
+  el conectoma: respuesta → habituación → recuperación espontánea.
+- 🏆 **Modo Retos (Fase 2)**: editor de laberintos (paredes con arrastre,
+  meta, fruta, veneno), suelta gusanos o moscas con conectoma real o ANN de
+  control, cronómetro de ensayo, desenlaces con causa y **récords
+  persistentes**.
+- 💾 **Cerebros portátiles**: exporta cualquier cerebro (inspector o Museo)
+  como `.neuroevo.json` — arquitectura + genoma + rasgos — e impórtalo para
+  sembrar 8 individuos en cualquier simulación.
 - 🏛️ **Museo de la Evolución** (con base de datos): guarda las élites
   evolucionadas y siémbralas en simulaciones futuras.
 - ⚡ **Rendimiento**: motor desacoplado de React a 30 ticks/s (hasta ×8 de
-  velocidad) — ~1.3 ms/tick incluso con 65 conectomas de 300 neuronas y su
-  ciclo de vida completo.
+  velocidad) — **~2,5 ms/tick** con el ecosistema completo: ~65 gusanos con
+  conectoma de 300 neuronas + ~15 moscas con el cerebro de 2.956 (banco de
+  33 pruebas: docs/PRUEBAS-FASE-2.md).
 
-## 🖥️ La interfaz
+## 🖥️ La interfaz — tres modos
 
 | | |
 |---|---|
-| ![Circuito vivo del conectoma](docs/screenshots/circuito-vivo.png) | ![Conectoma en anillo](docs/screenshots/conectoma-elegans.png) |
-| **Inspector · Circuito vivo** (nuevo): sentidos → neuronas → comando → pools → acción, con las sinapsis reales animadas y el estado conductual | **Inspector · Anillo**: 300 neuronas LIF en 3 clases (ámbar sensoriales, gris interneuronas, esmeralda motoras) |
+| ![Circuito vivo del conectoma](docs/screenshots/circuito-vivo.png) | ![Cerebro de Drosophila](docs/screenshots/cerebro-drosophila.png) |
+| **Inspector · Circuito vivo** (gusano): sentidos → comando → pools con las sinapsis reales animadas | **Inspector · Anillo Drosophila** (mosca): las 2.956 neuronas del cerebro larvario en 3 sectores, en vivo (41.977 sinapsis · Winding 2023) |
+| ![Laboratorio](docs/screenshots/laboratorio-rankin.png) | ![Retos](docs/screenshots/retos-arena.png) |
+| **Laboratorio**: estímulos con electrodo sobre circuitos reales, knockouts, trazas y el protocolo de habituación de Rankin 1990 | **Retos**: editor de laberintos, cronómetro y récords — conectoma real contra ANN de control |
 | ![Inspector de una mosca](docs/screenshots/inspector-neuronal.png) | ![Estadísticas](docs/screenshots/estadisticas.png) |
-| **Inspector · mosca**: red clásica 12→8→3 (control experimental) | **Datos**: KPIs, poblaciones (con línea de huevos) y generaciones |
+| **Inspector · ANN**: la red clásica 12→8→3 (control experimental) | **Datos**: KPIs, poblaciones (con línea de huevos) y generaciones |
 
 ## 🧠 Cómo funciona la simulación
 
 Cada criatura siente y decide **30 veces por segundo**. Desde v1.1.0 conviven
-dos arquitecturas cerebrales en el ecosistema y desde v1.2.0 los gusanos
-viven su biología completa.
+arquitecturas cerebrales intercambiables (patrón Strategy); desde v1.2.0 los
+gusanos viven su biología completa, y desde **v1.3.0 las dos especies usan
+conectomas reales** y hay tres modos de experimentación.
 
 ### 🪱 El gusano: conectoma real de *C. elegans* (Fase 1 + vida real)
 
@@ -133,7 +158,24 @@ conducta emerge de los pools motores:
 - Con frío extremo, el coeficiente **Q10** debilita la entrega sináptica: el
   nemátodo se vuelve letárgico y torpe, como el real.
 
-### 🪰 La mosca: ANN 12 → 8 → 3 (control experimental)
+### 🪰 La mosca: conectoma real de *Drosophila* (Fase 2) + ANN de control
+
+Desde v1.3.0 las moscas piensan con el **cerebro larvario completo de
+*Drosophila melanogaster*** (Winding et al. 2023): 2.956 neuronas y 41.977
+sinapsis reales bajo el mismo modelo LIF del gusano. Sus **18 sentidos**
+excitan los grupos neuronales anotados con la modalidad exacta en el dataset
+(42 ORNs del antenalar para el olfato con contraste L/R, 132 GRNs externas y
+110 faríngeas para el gusto, 29 PRs para la fotofobia y la sombra que crece,
+85 GUTs viscerales para el hambre, 14 MECs para el tacto…), y sus tres
+motores leen los pools descendentes reales: **DN-VNC** (avance), la
+**asimetría L/R de todas las DNs** (giro — la larva contrae un lado) y
+**DN-SEZ** (puesta de huevos, modulada por la ráfaga faríngea al comer).
+También heredan klinotaxis con sesgo lateral innato (gen 26). La ANN
+12 → 8 → 3 clásica queda como **control experimental** para comparar
+biología contra red evolutiva en el mismo mundo (siémbrala desde el
+Laboratorio, la Arena o el Museo).
+
+#### 🪰 El control: ANN 12 → 8 → 3
 
 | Entradas (sensores) | Salidas (motores) |
 |---|---|
@@ -298,6 +340,25 @@ Cómo funciona:
 8. **Biología vs. azar**: compara el inspector de un gusano (picos/tick y
    actividad media del conectoma LIF) con el de una mosca (ANN). ¿Qué cerebro
    coloniza antes un mundo nuevo: 300 neuronas reales o 131 pesos evolucionados?
+
+7. **Réplica de Rankin (Laboratorio)**: suelta un gusano de laboratorio
+   (línea isogénica N2), vigílalo y ejecuta el protocolo de 20 taps: verás
+   la respuesta del comando PVC/AVD decaer ensayo a ensayo (habituación) y
+   recuperarse tras un minuto de reposo. Activa la ablación ALM+PLM y
+   comprueba cómo el reflejo desaparece — la genética de circuitos de
+   Wicks & Rankin 1997, sin sacrificar un solo gusano real.
+8. **Ceguera experimental (Laboratorio)**: con una mosca de laboratorio
+   posada, lanza una sombra que crece: acelerón de escape por los
+   fotorreceptores. Ahora silencia los PRs y repite: sin escape. Añade
+   vitaminas: silencia DN-VNC y mira qué pasa con el control motor.
+9. **Bio vs. azar en laberinto (Retos)**: monta un laberinto con veneno y
+   una meta; suelta 3 moscas con conectoma real y 3 con ANN de control.
+   Cronometra: ¿cuál de las dos arquitecturas encuentra la salida? Exporta
+   el cerebro del campeón y siémbralo en una arena más difícil.
+10. **Ingeniería de cerebros**: exporta tu mejor gusano del Museo,
+   impórtalo en un mundo con «Era de hielo» y observa si su linaje
+   conserva la aptitud. Los archivos `.neuroevo.json` son portátiles:
+   compártelos.
 
 ## 📚 Documentación adicional
 

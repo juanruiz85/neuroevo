@@ -111,7 +111,8 @@ export function InspectorPanel({
   const cfg = SPECIES_CONFIG[c.species]
   const energyPct = Math.max(0, Math.min(100, (c.energy / c.maxEnergy) * 100))
   const agePct = Math.min(100, (c.age / c.maxAge) * 100)
-  const isElegans = c.brainKind === 'elegans' && c.connectome
+  const isElegans = c.brainKind === 'elegans'
+  const isDrosophila = c.brainKind === 'drosophila' && c.connectome
   const spikes = c.connectome?.s.filter((x) => x === 1).length ?? 0
   const activity = c.connectome
     ? Math.round(
@@ -233,21 +234,30 @@ export function InspectorPanel({
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm">
             <Dna className="size-4 text-emerald-500" />
-            {isElegans ? 'Cerebro biológico en vivo' : 'Cerebro en vivo'}
+            {isElegans || isDrosophila ? 'Cerebro biológico en vivo' : 'Cerebro en vivo'}
             {isElegans && (
               <Badge variant="outline" className="font-mono text-[9px] text-amber-500">
                 C. elegans · conectoma real
+              </Badge>
+            )}
+            {isDrosophila && (
+              <Badge variant="outline" className="font-mono text-[9px] text-amber-500">
+                Drosophila · conectoma real
               </Badge>
             )}
           </CardTitle>
           <CardDescription className="text-[11px]">
             {isElegans
               ? `Conectoma real de C. elegans: ${ELEGANS_INFO.neurons} neuronas y ${ELEGANS_INFO.synapses.toLocaleString('es')} sinapsis bajo un modelo LIF. Dos vistas: «Circuito vivo» sigue el flujo de los 17 sentidos hacia los pools motores, y «Anillo» muestra las 300 neuronas por clase.`
-              : '12 sensores → 8 neuronas → 3 motores. Verde = excitación, rojo = inhibición; el grosor es la fuerza sináptica.'}
+              : isDrosophila
+                ? 'Conectoma real del cerebro de la larva de Drosophila (Winding et al. 2023): 2.956 neuronas y 41.977 sinapsis bajo el mismo modelo LIF. El anillo muestra los tres sectores del cerebro: sensores, interneuronas y neuronas descendentes de salida.'
+                : '12 sensores → 8 neuronas → 3 motores. Verde = excitación, rojo = inhibición; el grosor es la fuerza sináptica.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          {c.brainKind === 'elegans' && <SensorStrip creature={c} />}
+          {(isElegans || isDrosophila) && (
+            <SensorStrip creature={c} variant={isDrosophila ? 'fly' : 'worm'} />
+          )}
           <BrainView key={c.brainKind} creature={c} />
         </CardContent>
       </Card>
