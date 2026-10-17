@@ -336,3 +336,51 @@ Stage Summary:
 - Museo retrocompatible (kind); moscas ANN como control experimental.
 - v1.1.0 taggeada localmente; publicar requiere push del usuario
   (token anterior revocado) → tag → workflow despliega Pages+Release.
+
+---
+Task ID: 9
+Agent: main (Z.ai Code)
+Task: Publicar v1.1.0 (conectoma C. elegans) en GitHub con el nuevo
+token del usuario: push de main + tag → workflow → verificar Pages,
+Release y E2E del sitio público.
+
+Work Log:
+- Estado local verificado: árbol limpio, tag v1.1.0 → 628cda1
+  (commit feat!), 3 commits por delante del remoto (789344a docs,
+  628cda1 feat, c87516c docs). tsc --noEmit: 0 errores en src/
+  (confianza alta para el build de CI).
+- Token nuevo del usuario guardado en /tmp/ghtoken (chmod 600);
+  identidad verificada (juanruiz85) y remoto en b0cf61c (v1.0.0).
+- Push fast-forward de main (b0cf61c→c87516c) y push del tag v1.1.0
+  → disparó el workflow "Deploy a GitHub Pages" (run #3).
+- Run #3: SUCCESS a la primera (~40 s de polling; sin la incidencia
+  de protección de entorno de v1.0.0).
+- Release v1.1.0 creada: notas autogeneradas (compare v1.0.0...v1.1.0)
+  + neuroevo-v1.1.0-sitio-estatico.zip (585 KB). Pages 200.
+- E2E del sitio público con agent-browser + VLM:
+  - Título correcto, 0 page errors, 0 errores/ warnings en consola.
+  - Inspector → "Seguir un gusano": ficha con PICOS/TICK 107/300
+    (modelo LIF) y ACTIVIDAD MEDIA 82% (4731 sinapsis reales).
+  - Canvas del conectoma verificado por VLM: anillo de ~300 puntos
+    en 3 sectores por clase (ámbar/gris/esmeralda), destellos blancos
+    de pico, etiquetas AFD/ASE/AWA/AVA/AVB/VB/VC, 3 salidas motoras
+    (Girar -0.04 · Avanzar 0.5 · Reproducir 1) y leyenda "4731
+    sinapsis · OpenWorm".
+  - Control intacto: "Seguir una mosca" → ANN 12→8→3 clásica.
+  - Detalle de verificación: los gusanos aleatorios morían (hambre/
+    vejez) antes de la captura → pausar la simulación estabiliza la
+    selección; el canvas del cerebro vive bajo el pliegue en un panel
+    con scroll interno → scrollIntoView para la captura.
+  - Ecosistema vivo al cierre: moscas en G8 reproduciéndose.
+- Token eliminado de /tmp; usuario advertido de revocarlo/rotarlo
+  (expuesto en el chat por segunda vez).
+
+Stage Summary:
+- https://github.com/juanruiz85/neuroevo — main actualizado con la
+  Fase 1 (conectoma C. elegans) y todo el historial.
+- https://juanruiz85.github.io/neuroevo/ — v1.1.0 en producción,
+  verificada E2E (gusanos con conectoma real + moscas ANN de control).
+- https://github.com/juanruiz85/neuroevo/releases/tag/v1.1.0 —
+  Release con el sitio compilado adjunto.
+- Pipeline v* → build → Pages + Release confirmado de nuevo (run #3
+  SUCCESS). Siguiente versión: tag v1.2.0 + push.
