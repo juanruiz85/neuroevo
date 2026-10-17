@@ -37,9 +37,6 @@ jobs:
     name: Build y despliegue
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -81,6 +78,9 @@ jobs:
       - name: Desplegar a GitHub Pages
         id: deploy
         uses: actions/deploy-pages@v4
+
+      - name: Resumen del despliegue
+        run: echo "🌍 Sitio publicado en ${{ steps.deploy.outputs.page_url }}"
 
       - name: Crear Release con el sitio compilado
         if: startsWith(github.ref, 'refs/tags/v')
