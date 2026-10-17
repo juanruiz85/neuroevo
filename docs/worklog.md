@@ -645,3 +645,54 @@ Stage Summary:
 - v1.2.0 EN LÍNEA: main aadb08d + tag v1.2.0 → Pages y Release
   automáticos; E2E en producción sin errores y con la biología nueva
   (17 sentidos, ciclo de vida, huevos, Circuito vivo) funcionando.
+
+---
+Task ID: 13
+Agent: main (Z.ai Code)
+Task: Diseñar la Fase 2 completa (Drosophila real + Laboratorio + Retos +
+export/import) y documentar el método riguroso.
+
+Work Log:
+- Leído el motor completo (adapter/elegans/sensors/creature/world/types/nn,
+  use-simulation, page) y docs/FASE-2-DROSOPHILA.md (plan antiguo).
+- ESCRITO docs/PLAN-FASE-2-EXPERIMENTOS.md: decisión de datos (larva
+  Winding 2023 — único conectoma de insecto completo y descargable sin
+  credenciales), pipeline CSV→JSON, 17 canales sensoriales mapeados a las
+  anotaciones REALES del dataset, mapeo motor por asimetría L/R de DNs +
+  DN-VNC + DN-SEZ, genoma de 24 genes, habituación sináptica por depresión
+  homosináptica, laboratorio (6 estímulos + knockouts por clase + trazas +
+  protocolo guiado), arena con paredes/meta/récords, formato de export,
+  plan de 8 pruebas headless + E2E, cronograma de tareas y 9 referencias.
+- Decisión clave documentada: Moscón = adulto virtual con estructura del
+  cerebro LARVARIO completo (2.956 neuronas); ANN conservada como control
+  experimental sembrable desde el Museo/Lab/Arena.
+
+Stage Summary:
+- Método completo de la Fase 2 en docs/PLAN-FASE-2-EXPERIMENTOS.md; nada
+  se declarará "hecho" sin su prueba archivada (PRUEBAS-FASE-2.md).
+
+---
+Task ID: 14-a
+Agent: general-purpose (subagente)
+Task: Encontrar, descargar y validar un dataset REAL del conectoma de
+Drosophila sin credenciales.
+
+Work Log:
+- Fuente ganadora: Winding et al. 2023 Science 379:eadd9330 (conectoma del
+  cerebro de la larva). Descargado desde networks.skewed.de (mirror oficial)
+  + suplementos desde el bucket AWS de PMC (esquiva Cloudflare/reCAPTCHA).
+- Validación cruzada: 2.956 neuronas, 116.922 aristas, 352.611 sinapsis —
+  total idéntico a la matriz densa del S1 (7/8 aristas aleatorias spot-check).
+- Construidos /tmp/drosophila-data/larva_neurons.csv (201 KB: skid,
+  hemisferio, homólogo L/R, cell_type, annotations=modalidad sensorial real,
+  level_7_cluster, I/O axón/dendrita) y larva_edges_etype.csv (2,6 MB:
+  source, target, synapse_count, etype ad/aa/dd/da).
+- Sin gap junctions en el dataset (todo químico); neurotransmisores NO
+  incluidos → derivar por tipo celular con gt_data.csv (forkelab) de
+  referencia. Umbral recomendado w≥3 → 38.303 aristas (71,7% sinapsis).
+
+Stage Summary:
+- Datos reales listos en /tmp/drosophila-data/ con modalidades sensoriales
+  por neurona (olfactory, gustatory-external/pharyngeal, visual, noci,
+  thermo-cold/warm, mechano-Ch, proprio, respiratory, gut) y 346 DNs
+  (salidas motoras). Informe completo del agente con URLs y citas.
