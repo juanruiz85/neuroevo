@@ -1,0 +1,96 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Despliegue automático a GitHub Pages + Release
+# ─────────────────────────────────────────────────────────────────────────────
+# Se dispara al publicar una nueva versión (etiqueta "v*") o manualmente desde
+# la pestaña Actions → "Deploy a GitHub Pages" → Run workflow.
+#
+# Qué hace:
+#   1. Construye el sitio estático (`bun run build:static` → output "export").
+#      Las rutas de API se excluyen (no hay backend en Pages); el Museo de la
+#      Evolución pasa a guardar los linajes en localStorage del visitante.
+#   2. Calcula el basePath según el repositorio (vacío para *.github.io,
+#      "/<repo>" en el resto).
+#   3. Publica el sitio en GitHub Pages (actions/deploy-pages).
+#   4. Si el disparo fue una etiqueta, crea la Release con notas generadas
+#      automáticamente y adjunta el sitio compilado como .zip.
+
+name: Deploy a GitHub Pages
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write # crear la Release y subir el sitio como asset
+  pages: write # publicar en GitHub Pages
+  id-token: write # OIDC para el despliegue
+
+# Un solo despliegue de Pages por ref a la vez; no cancelamos el anterior.
+concurrency:
+  group: pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build y despliegue
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Instalar dependencias
+        run: bun install --frozen-lockfile
+
+      # Un export estático no admite route handlers dinámicos (Prisma/SQLite);
+      # el frontend en modo estático no los invoca.
+      - name: Excluir rutas de API del build estático
+        run: rm -rf src/app/api
+
+      - name: Calcular basePath del repositorio
+        id: basepath
+        run: |
+          REPO="${GITHUB_REPOSITORY#*/}"
+          if [[ "$REPO" == *.github.io ]]; then
+            echo "path=" >> "$GITHUB_OUTPUT"
+          else
+            echo "path=/$REPO" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build estático (Next.js export)
+        env:
+          NEXT_PUBLIC_BASE_PATH: ${{ steps.basepath.outputs.path }}
+        run: bun run build:static
+
+      - name: Configurar GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Subir artefacto del sitio
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+      - name: Desplegar a GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4
+
+      - name: Crear Release con el sitio compilado
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          ZIP="neuroevo-${TAG}-sitio-estatico.zip"
+          (cd out && zip -qr "../$ZIP" .)
+          gh release create "$TAG" "$ZIP" \
+            --title "NeuroEvo ${TAG}" \
+            --generate-notes \
+            --repo "$GITHUB_REPOSITORY"

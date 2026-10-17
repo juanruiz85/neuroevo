@@ -104,7 +104,7 @@ Cada criatura siente y decide 30 veces por segundo:
 
 ```bash
 # 1. Clona el repositorio
-git clone https://github.com/USUARIO/neuroevo.git
+git clone https://github.com/juanruiz85/neuroevo.git
 cd neuroevo
 
 # 2. Instala las dependencias
@@ -167,6 +167,38 @@ neuroevo/
 
 Los cerebros se persisten en SQLite (Prisma) como JSON, listos para sembrarse
 en cualquier simulación futura con una ligera mutación.
+
+## 🌐 Despliegue automático (GitHub Pages + Releases)
+
+**Sitio en vivo**: <https://juanruiz85.github.io/neuroevo/>
+
+Cada nueva versión se publica sola mediante el workflow
+[`.github/workflows/deploy-pages.yml`](.github/workflows/deploy-pages.yml):
+
+```bash
+# 1. Publica una nueva versión (tag anotado)
+git tag -a v1.1.0 -m "NeuroEvo v1.1.0"
+git push origin v1.1.0
+
+# 2. …y eso es todo: el workflow construye el sitio estático,
+#    lo despliega en GitHub Pages y crea la Release v1.1.0
+#    con notas autogeneradas y el sitio compilado como .zip adjunto.
+```
+
+Cómo funciona:
+
+- **Build estático** (`bun run build:static`) — exporta la app con
+  `output: "export"` (Turbopack) excluyendo las rutas de API y calculando
+  automáticamente el `basePath` según el repositorio (`/<repo>` para sitios
+  de proyecto, vacío para `usuario.github.io`).
+- **Museo sin backend** — en el sitio estático no hay servidor, así que el
+  Museo de la Evolución degrada con elegancia: los linajes élite se guardan
+  en `localStorage` del visitante. La simulación funciona al 100 %: corre
+  íntegramente en el navegador.
+- **Pages + Release** — `actions/deploy-pages` publica el artefacto y
+  `gh release create` genera la Release con `--generate-notes`.
+- También puede dispararse manualmente: pestaña **Actions → “Deploy a GitHub
+  Pages” → Run workflow**.
 
 ## 🎮 Experimentos sugeridos
 

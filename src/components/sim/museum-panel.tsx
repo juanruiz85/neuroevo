@@ -2,6 +2,8 @@
 
 // Museo de la Evolución: guarda las élites (cerebros evolucionados) en la base
 // de datos vía /api/records y permite sembrarlas en la simulación actual.
+// En el despliegue estático (GitHub Pages, NEXT_PUBLIC_STATIC_MODE=1) no hay
+// backend y el Museo degrada con elegancia: usa localStorage del visitante.
 
 import { useCallback, useEffect, useState } from 'react'
 import { format } from 'date-fns'
@@ -31,7 +33,14 @@ import type {
   EliteRecord,
   EvolutionRecordDTO,
 } from '@/lib/sim/types'
+import {
+  listRecords,
+  removeRecord,
+  saveRecord,
+} from '@/lib/static-museum'
 import { cn } from '@/lib/utils'
+
+const STATIC_MODE = process.env.NEXT_PUBLIC_STATIC_MODE === '1'
 
 interface Props {
   onGetElite: () => EliteRecord[]
@@ -44,6 +53,10 @@ export function MuseumPanel({ onGetElite, onSeed }: Props) {
   const [saving, setSaving] = useState(false)
 
   const load = useCallback(async () => {
+    if (STATIC_MODE) {
+      setRecords(listRecords())
+      return
+    }
     try {
       const res = await fetch('/api/records')
       if (!res.ok) throw new Error('GET falló')
@@ -67,6 +80,20 @@ export function MuseumPanel({ onGetElite, onSeed }: Props) {
     setSaving(true)
     const prefix = name.trim() || 'Élite'
     try {
+      if (STATIC_MODE) {
+        elite.forEach((rec) =>
+          saveRecord(
+            rec,
+            `${prefix} · ${rec.species === 'fly' ? 'Moscón' : 'Gusano'} G${rec.generation}`,
+          ),
+        )
+        toast.success(
+          `${elite.length} cerebros guardados en este navegador (sitio estático).`,
+        )
+        setName('')
+        setRecords(listRecords())
+        return
+      }
       const results = await Promise.all(
         elite.map((rec) =>
           fetch('/api/records', {
@@ -93,6 +120,12 @@ export function MuseumPanel({ onGetElite, onSeed }: Props) {
   }
 
   const remove = async (rec: EvolutionRecordDTO) => {
+    if (STATIC_MODE) {
+      removeRecord(rec.id)
+      toast.success('Registro eliminado del Museo.')
+      setRecords(listRecords())
+      return
+    }
     try {
       const res = await fetch(`/api/records/${rec.id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('DELETE falló')
@@ -119,8 +152,9 @@ export function MuseumPanel({ onGetElite, onSeed }: Props) {
             Guardar la élite actual
           </CardTitle>
           <CardDescription>
-            Conserva los 4 mejores cerebros (2 por especie, por aptitud) en la
-            base de datos para sembrarlos en cualquier simulación futura.
+            {STATIC_MODE
+              ? 'Sitio estático: los linajes se conservan en este navegador (localStorage).'
+              : 'Conserva los 4 mejores cerebros (2 por especie, por aptitud) en la base de datos para sembrarlos en cualquier simulación futura.'}
           </CardDescription>
         </CardHeader>
         <CardContent className="flex gap-2">

@@ -56,6 +56,20 @@ Primera versión pública completa.
 - `POST /api/records` — valida con zod y guarda una élite.
 - `DELETE /api/records/[id]` — elimina un registro (params asíncronos de Next.js 16).
 
+**Despliegue** (`.github/workflows/deploy-pages.yml`, `next.config.ts`)
+- Publicación automática a **GitHub Pages** al subir una etiqueta `v*`:
+  build estático (`output: "export"` con Turbopack) con `basePath` calculado
+  según el repositorio, despliegue con `actions/deploy-pages` y creación de
+  la **Release** con `gh` (notas autogeneradas + sitio compilado como
+  archivo adjunto `.zip`).
+- **Modo estático del Museo de la Evolución**: sin backend, los linajes
+  élite se guardan en `localStorage` del visitante (degradación elegante con
+  el mismo contrato `EvolutionRecordDTO`); la simulación corre íntegra en
+  el cliente.
+- `bun run build:static` para reproducir localmente el build de Pages
+  (variables `NEXT_OUTPUT`, `NEXT_PUBLIC_BASE_PATH`, `NEXT_PUBLIC_STATIC_MODE`,
+  `NEXT_DIST_DIR`).
+
 **Documentación**
 - README con guía de instalación, uso y experimentos sugeridos.
 - `docs/ARQUITECTURA.md`: especificación técnica completa del motor.
@@ -71,4 +85,4 @@ Primera versión pública completa.
 - Evolución observada hasta la generación 17 en ~10 minutos de simulación
   (560 nacimientos / 579 muertes).
 
-[1.0.0]: https://github.com/USER/neuroevo/releases/tag/v1.0.0
+[1.0.0]: https://github.com/juanruiz85/neuroevo/releases/tag/v1.0.0
