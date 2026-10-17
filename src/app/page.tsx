@@ -30,6 +30,8 @@ import { EnvironmentPanel } from '@/components/sim/environment-panel'
 import { InspectorPanel } from '@/components/sim/inspector-panel'
 import { StatsPanel } from '@/components/sim/stats-panel'
 import { MuseumPanel } from '@/components/sim/museum-panel'
+import { ArenaPanel } from '@/components/sim/arena-panel'
+import { LabPanel } from '@/components/sim/lab-panel'
 import { useSimulation } from '@/components/sim/use-simulation'
 import type { Species } from '@/lib/sim/types'
 import { cn } from '@/lib/utils'
@@ -131,46 +133,52 @@ export default function Home() {
         </Card>
 
         <div className="nice-scroll lg:h-[calc(100vh-146px)] lg:overflow-y-auto lg:pr-1">
-          <Tabs value={tab} onValueChange={setTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
-              <TabsTrigger value="ambiente" className="gap-1.5">
-                <CloudSun className="size-3.5" />
-                <span className="hidden sm:inline">Ambiente</span>
-              </TabsTrigger>
-              <TabsTrigger value="inspector" className="gap-1.5">
-                <Brain className="size-3.5" />
-                <span className="hidden sm:inline">Inspector</span>
-              </TabsTrigger>
-              <TabsTrigger value="datos" className="gap-1.5">
-                <Activity className="size-3.5" />
-                <span className="hidden sm:inline">Datos</span>
-              </TabsTrigger>
-              <TabsTrigger value="museo" className="gap-1.5">
-                <Archive className="size-3.5" />
-                <span className="hidden sm:inline">Museo</span>
-              </TabsTrigger>
-            </TabsList>
+          {sim.mode === 'arena' ? (
+            <ArenaPanel sim={sim} />
+          ) : sim.mode === 'lab' ? (
+            <LabPanel sim={sim} />
+          ) : (
+            <Tabs value={tab} onValueChange={setTab} className="w-full">
+              <TabsList className="grid w-full grid-cols-4">
+                <TabsTrigger value="ambiente" className="gap-1.5">
+                  <CloudSun className="size-3.5" />
+                  <span className="hidden sm:inline">Ambiente</span>
+                </TabsTrigger>
+                <TabsTrigger value="inspector" className="gap-1.5">
+                  <Brain className="size-3.5" />
+                  <span className="hidden sm:inline">Inspector</span>
+                </TabsTrigger>
+                <TabsTrigger value="datos" className="gap-1.5">
+                  <Activity className="size-3.5" />
+                  <span className="hidden sm:inline">Datos</span>
+                </TabsTrigger>
+                <TabsTrigger value="museo" className="gap-1.5">
+                  <Archive className="size-3.5" />
+                  <span className="hidden sm:inline">Museo</span>
+                </TabsTrigger>
+              </TabsList>
 
-            <TabsContent value="ambiente" className="mt-3">
-              <EnvironmentPanel env={ui.env} onChange={sim.setEnv} />
-            </TabsContent>
-            <TabsContent value="inspector" className="mt-3">
-              <InspectorPanel
-                selected={ui.selected}
-                onFollow={(s: Species) => sim.followRandom(s)}
-                onRelease={sim.deselect}
-              />
-            </TabsContent>
-            <TabsContent value="datos" className="mt-3">
-              <StatsPanel ui={ui} onReintroduce={sim.reintroduce} />
-            </TabsContent>
-            <TabsContent value="museo" className="mt-3">
-              <MuseumPanel
-                onGetElite={sim.getElite}
-                onSeed={sim.seedFromRecord}
-              />
-            </TabsContent>
-          </Tabs>
+              <TabsContent value="ambiente" className="mt-3">
+                <EnvironmentPanel env={ui.env} onChange={sim.setEnv} />
+              </TabsContent>
+              <TabsContent value="inspector" className="mt-3">
+                <InspectorPanel
+                  selected={ui.selected}
+                  onFollow={(s: Species) => sim.followRandom(s)}
+                  onRelease={sim.deselect}
+                />
+              </TabsContent>
+              <TabsContent value="datos" className="mt-3">
+                <StatsPanel ui={ui} onReintroduce={sim.reintroduce} />
+              </TabsContent>
+              <TabsContent value="museo" className="mt-3">
+                <MuseumPanel
+                  onGetElite={sim.getElite}
+                  onSeed={sim.seedFromRecord}
+                />
+              </TabsContent>
+            </Tabs>
+          )}
         </div>
       </main>
 

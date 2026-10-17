@@ -5,6 +5,64 @@ import type { BrainKind } from './connectome/adapter'
 export type Species = 'fly' | 'worm'
 export type FoodKind = 'fruit' | 'detritus' | 'sugar' | 'poison'
 
+/** Modos de simulación (Fase 2). */
+export type SimMode = 'ecosystem' | 'arena' | 'lab'
+
+/** Pared de la arena (segmento con grosor de colisión). */
+export interface Wall {
+  x1: number
+  y1: number
+  x2: number
+  y2: number
+}
+
+/** Meta de la arena (zona de llegada). */
+export interface ArenaGoal {
+  x: number
+  y: number
+  r: number
+}
+
+/** Resultado de un participante de arena. */
+export interface ArenaResult {
+  id: number
+  species: Species
+  brainKind: BrainKind
+  /** Tiempo de llegada (éxito) o de muerte (s). */
+  time: number
+  success: boolean
+  cause?: 'goal' | 'poison' | 'starve' | 'age'
+}
+
+/** Estímulos programables del Laboratorio. */
+export type StimKind = 'tap' | 'shadow' | 'flash' | 'heat' | 'foodDrop' | 'airPuff'
+
+/** Estímulo activo en el mundo (con epicentro y vida). */
+export interface ActiveStimulus {
+  kind: StimKind
+  x: number
+  y: number
+  /** Tiempo transcurrido (s). */
+  t: number
+  /** Duración total (s). */
+  dur: number
+  /** Intensidad [0,1] (el looming la modula con el tiempo). */
+  amp: number
+}
+
+/** Punto de la traza de actividad del cerebro seleccionado (Lab). */
+export interface TracePoint {
+  t: number
+  /** Tasa del pool de avance. */
+  fwd: number
+  /** Reversa (gusano) o asimetría L/R de giro (mosca). */
+  rev: number
+  /** Tasa del pool de puesta. */
+  egg: number
+  /** Fracción de picos del conectoma. */
+  spike: number
+}
+
 /**
  * Fases del ciclo de vida de C. elegans (los huevos son objetos del mundo,
  * no criaturas; las moscas mantienen su modelo simple de control).
@@ -234,6 +292,19 @@ export interface WorldView {
   ambientTemp: number
   humidity: number
   env: EnvParams
+  mode: SimMode
+  /** Paredes de la arena (Modo Retos). */
+  walls: Wall[]
+  /** Meta de la arena. */
+  goal: ArenaGoal | null
+  /** Cronómetro del ensayo de arena. */
+  runT: number
+  /** true con el ensayo en marcha. */
+  arenaRunning: boolean
+  /** Resultados de participantes de arena. */
+  arenaResults: ArenaResult[]
+  /** Trazas del cerebro seleccionado (Laboratorio). */
+  traces: TracePoint[]
   counts: {
     flies: number
     worms: number

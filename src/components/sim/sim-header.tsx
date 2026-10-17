@@ -1,12 +1,14 @@
 'use client'
 
-// Cabecera: identidad, métricas en vivo, velocidad, pausa, reset y tema.
+// Cabecera: identidad, selector de MODO (ecosistema/retos/laboratorio),
+// métricas en vivo, velocidad, pausa, reset y tema.
 
 import { useTheme } from 'next-themes'
 import {
   Baby,
   Bug,
   Dna,
+  FlaskConical,
   Moon,
   Pause,
   Play,
@@ -14,6 +16,7 @@ import {
   Skull,
   Sun,
   Timer,
+  Trophy,
   Worm,
 } from 'lucide-react'
 import {
@@ -29,9 +32,18 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { SimApi } from '@/components/sim/use-simulation'
+import type { SimMode } from '@/lib/sim/types'
+import { cn } from '@/lib/utils'
 
 const SPEEDS = [0.5, 1, 2, 4, 8]
+
+const MODES: { key: SimMode; label: string; short: string; icon: typeof Dna }[] = [
+  { key: 'ecosystem', label: 'Ecosistema — evolución libre con clima', short: 'Ecosistema', icon: Dna },
+  { key: 'arena', label: 'Retos — construye laberintos y cronometra', short: 'Retos', icon: Trophy },
+  { key: 'lab', label: 'Laboratorio — estímulos, knockouts y trazas', short: 'Laboratorio', icon: FlaskConical },
+]
 
 export function SimHeader({ sim }: { sim: SimApi }) {
   const { ui } = sim
@@ -58,6 +70,42 @@ export function SimHeader({ sim }: { sim: SimApi }) {
           <Chip icon={Baby}>{ui.births}</Chip>
           <Chip icon={Skull}>{ui.deaths}</Chip>
         </div>
+
+        <TooltipProvider delayDuration={300}>
+          <ToggleGroup
+            type="single"
+            value={sim.mode}
+            onValueChange={(v) => {
+              if (v) sim.setMode(v as SimMode)
+            }}
+            variant="outline"
+            size="sm"
+            className="gap-0"
+            aria-label="Modo de simulación"
+          >
+            {MODES.map((m) => {
+              const Icon = m.icon
+              return (
+                <Tooltip key={m.key}>
+                  <TooltipTrigger asChild>
+                    <ToggleGroupItem
+                      value={m.key}
+                      className="gap-1.5 px-2.5 text-[11px] font-medium"
+                    >
+                      <Icon className="size-3.5" />
+                      <span className={cn(sim.mode === m.key ? 'inline' : 'hidden md:inline')}>
+                        {m.short}
+                      </span>
+                    </ToggleGroupItem>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-[11px]">
+                    {m.label}
+                  </TooltipContent>
+                </Tooltip>
+              )
+            })}
+          </ToggleGroup>
+        </TooltipProvider>
 
         <div className="ml-auto flex items-center gap-1.5">
           <ToggleGroup

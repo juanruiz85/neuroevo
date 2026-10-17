@@ -111,6 +111,14 @@ export class Creature {
   dauerT = 0
   private dauerExitT = 0
 
+  // ——— Arena / Laboratorio (Fase 2) ————————————————————————————————————
+  /** true al tocar la meta o registrarse su desenlace. */
+  arenaDone = false
+  /** Desenlace del ensayo ('goal' al llegar). */
+  arenaOutcome?: 'goal'
+  /** true si comió veneno (causa de muerte para el registro). */
+  poisoned = false
+
   // ——— Sensores de fase (decaen, como receptores fáscicos reales) ———
   /** Destello de tacto cefálico (para el canal ASH/FLP/OLQ y el render). */
   touchF = 0
@@ -125,6 +133,12 @@ export class Creature {
   private foodNearSm = 0
   private foodPrevSm = 0
   private foodDeltaSm = 0
+  // ——— Adaptación sensorial (fotorreceptores e higrosensación reales:
+  // responden a CAMBIOS, no a niveles constantes; τ ≈ 3 s) ————————
+  private lightSm = 0.5
+  private humSm = 0.55
+  // AFD es un detector de RAMPAS (responde a dT/dt con adaptación):
+  private tempSm = 24
 
   private readonly inputs: number[] = new Array<number>(NN_CHANNELS).fill(0)
 
@@ -191,14 +205,14 @@ export class Creature {
     // — Sensores —
     const food = world.nearestFood(this.x, this.y, vision, cfg.diet)
     const poison = world.nearestFood(this.x, this.y, vision, POISON_MASK)
-    const crowd = world.countNeighbors(this.x, this.y, 42, this.species)
+    const crowd = world.countNeighbors(this.x, this.y, 42, this.species, this)
 
     const inp = this.inputs
     inp.fill(0) // reset de todos los canales cada tick
     inp[0] = 1 // sesgo
     inp[CH.ENERGY] = this.energy / cfg.maxEnergy
-    inp[CH.THERMO] = clamp((temp - cfg.optimalTemp) / 9, -1, 1) // confort térmico
-    inp[CH.LIGHT] = light
+    inp[CH.LIGHT] = light // nivel crudo (la ANN de control ve el nivel)
+    inp[CH.THERMO] = clamp((temp - cfg.optimalTemp) / 9, -1, 1) // idem ANN
     inp[CH.HUMIDITY] = env.humidity / 100
     if (poison) {
       setDirection(inp, CH.POISON_X, this, poison.x, poison.y, vision)
@@ -215,6 +229,10 @@ export class Creature {
       // solo lee los 12 primeros canales del contrato común).
       this.senseFly(world, inp, food, dt)
     }
+
+    // — Estímulos del Laboratorio: el mundo los inyecta por encima de
+    //   las señales ambientales (tap, sombra, flash, chorro de aire).
+    world.stimToInputs(this, inp)
 
     // — Piensa —
     this.brain.forward(inp, coldVoltage)
@@ -246,6 +264,9 @@ export class Creature {
       this.y = world.height - m
       this.heading = -this.heading
     }
+
+    // Paredes de la arena: colisión círculo-segmento con rebote.
+    if (world.walls.length) this.collideWalls(world)
 
     // — Animación —
     this.wingPhase += dt * (14 + this.speed * 0.18)
@@ -332,6 +353,42 @@ export class Creature {
   }
 
   /**
+   * Colisión con las paredes de la arena: proyecta el cuerpo fuera del
+   * segmento, refleja el rumbo sobre la normal y dispara el canal de tacto
+   * (los mecanorreceptores reales responden al golpe).
+   */
+  private collideWalls(world: World): void {
+    const r = SPECIES_CONFIG[this.species].radius + 2.5
+    for (const w of world.walls) {
+      const dx = w.x2 - w.x1
+      const dy = w.y2 - w.y1
+      const len2 = dx * dx + dy * dy || 1
+      let t = ((this.x - w.x1) * dx + (this.y - w.y1) * dy) / len2
+      t = clamp(t, 0, 1)
+      const px = w.x1 + t * dx
+      const py = w.y1 + t * dy
+      let nx = this.x - px
+      let ny = this.y - py
+      const d = Math.hypot(nx, ny)
+      if (d >= r || d < 0.001) continue
+      nx /= d
+      ny /= d
+      this.x = px + nx * r
+      this.y = py + ny * r
+      const vx = Math.cos(this.heading)
+      const vy = Math.sin(this.heading)
+      const dot = vx * nx + vy * ny
+      if (dot < 0) {
+        // Reflexión especular del rumbo sobre la normal de la pared.
+        const rx = vx - 2 * dot * nx
+        const ry = vy - 2 * dot * ny
+        this.heading = Math.atan2(ry, rx)
+      }
+      this.touchF = 1
+    }
+  }
+
+  /**
    * Sentidos propios del gusano: tacto cefálico/caudal (circuitos reales
    * ASH→AVA→reversa y PLM→PVC→avance), propiocepción del ondular,
    * deriva del gradiente de comida (klinotaxis) y feromona de conglomerado.
@@ -344,7 +401,21 @@ export class Creature {
   ): void {
     const decay = Math.exp(-dt * 6)
 
+    // Adaptación sensorial: los fotorreceptores (LITE-1 en ASH), los
+    // higrosensibles (BAG) y el termosensor AFD (detector de rampas,
+    // Goodman & Sengupta) responden al CAMBIO, no al nivel — con luz y
+    // temperatura constantes el fondo neural calla y solo los transitorios
+    // (amanecer, estímulos del laboratorio) disparan.
+    this.lightSm += (world.light - this.lightSm) * Math.min(1, dt / 3)
+    this.humSm += (world.env.humidity / 100 - this.humSm) * Math.min(1, dt / 3)
+    this.tempSm += (world.ambientTemp - this.tempSm) * Math.min(1, dt / 4)
+    inp[CH.LIGHT] = clamp((world.light - this.lightSm) * 2.4, 0, 1)
+    inp[CH.HUMIDITY] = clamp((world.env.humidity / 100 - this.humSm) * 2.4, 0, 1)
+    const thermo = clamp((world.ambientTemp - this.tempSm) / 9, -1, 1)
+    inp[CH.THERMO] = clamp(thermo * 2.4, -1, 1)
+
     // Tacto: nariz y cola contra bordes u otros cuerpos (receptores fáscicos).
+    // Sin auto-contarse: uno no se toca la nariz a sí mismo.
     const reach = 9
     const nx = this.x + Math.cos(this.heading) * 9
     const ny = this.y + Math.sin(this.heading) * 9
@@ -352,10 +423,10 @@ export class Creature {
     const ty = this.y - Math.sin(this.heading) * 9
     const hitN =
       nx < 13 || nx > world.width - 13 || ny < 13 || ny > world.height - 13 ||
-      world.countNeighbors(nx, ny, reach, 'any') > 0
+      world.countNeighbors(nx, ny, reach, 'any', this) > 0
     const hitB =
       tx < 13 || tx > world.width - 13 || ty < 13 || ty > world.height - 13 ||
-      world.countNeighbors(tx, ty, reach, 'any') > 0
+      world.countNeighbors(tx, ty, reach, 'any', this) > 0
     this.touchF = hitN ? 1 : this.touchF * decay
     this.touchB = hitB ? 1 : this.touchB * decay
     inp[CH.TOUCH_FRONT] = this.touchF
@@ -377,7 +448,7 @@ export class Creature {
     inp[CH.FOOD_DELTA] = this.foodDeltaSm
 
     // Feromona de conglomerado (ascarósidos): densidad local de gusanos.
-    inp[CH.PHEROMONE] = world.wormPheromone(this.x, this.y)
+    inp[CH.PHEROMONE] = world.wormPheromone(this.x, this.y, this)
   }
 
   /**
@@ -393,6 +464,17 @@ export class Creature {
   ): void {
     const decay = Math.exp(-dt * 6)
 
+    // Adaptación sensorial de los fotorreceptores e higrosensibles (igual
+    // que el gusano: los PRs larvarios responden con adaptación; los
+    // termosensores THc/THw también son detectores de cambio).
+    this.lightSm += (world.light - this.lightSm) * Math.min(1, dt / 3)
+    this.humSm += (world.env.humidity / 100 - this.humSm) * Math.min(1, dt / 3)
+    this.tempSm += (world.ambientTemp - this.tempSm) * Math.min(1, dt / 4)
+    inp[DCH.LIGHT] = clamp((world.light - this.lightSm) * 2.4, 0, 1)
+    inp[DCH.HUMIDITY] = clamp((world.env.humidity / 100 - this.humSm) * 2.4, 0, 1)
+    const thermoF = clamp((world.ambientTemp - this.tempSm) / 9, -1, 1)
+    inp[DCH.THERMO] = clamp(thermoF * 2.4, -1, 1)
+
     // Tacto: cabeza contra bordes u otros cuerpos (mecanosensores MEC).
     const nx = this.x + Math.cos(this.heading) * 9
     const ny = this.y + Math.sin(this.heading) * 9
@@ -400,10 +482,10 @@ export class Creature {
     const ty = this.y - Math.sin(this.heading) * 9
     const hitN =
       nx < 13 || nx > world.width - 13 || ny < 13 || ny > world.height - 13 ||
-      world.countNeighbors(nx, ny, 9, 'any') > 0
+      world.countNeighbors(nx, ny, 9, 'any', this) > 0
     const hitB =
       tx < 13 || tx > world.width - 13 || ty < 13 || ty > world.height - 13 ||
-      world.countNeighbors(tx, ty, 9, 'any') > 0
+      world.countNeighbors(tx, ty, 9, 'any', this) > 0
     this.touchF = hitN ? 1 : this.touchF * decay
     this.touchB = hitB ? 1 : this.touchB * decay
     inp[DCH.TOUCH_FRONT] = this.touchF
@@ -456,7 +538,7 @@ export class Creature {
     if (this.stage === 'adult') {
       this.adultT += dt * (1 + Math.max(0, this.bodyTemp - 26) * 0.05)
       // Autofecundación: maduración de huevos internos con esperma limitado.
-      const pher = world.wormPheromone(this.x, this.y)
+      const pher = world.wormPheromone(this.x, this.y, this)
       if (
         this.adultT > WORM_LIFE.adultMatureDelay &&
         this.energy > WORM_LIFE.eggMinEnergy &&

@@ -8,17 +8,25 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { World } from '@/lib/sim/world'
 import {
   DEFAULT_ENV,
+  type ArenaGoal,
   type EliteRecord,
   type EnvParams,
   type EvolutionRecordDTO,
+  type SimMode,
   type Species,
+  type StimKind,
+  type Wall,
   type WorldView,
 } from '@/lib/sim/types'
+import type { BrainKind } from '@/lib/sim/connectome/adapter'
+import type { Creature } from '@/lib/sim/creature'
 
 export interface SimApi {
   ui: WorldView
   paused: boolean
   speed: number
+  mode: SimMode
+  setMode: (m: SimMode) => void
   togglePause: () => void
   setSpeed: (v: number) => void
   reset: () => void
@@ -31,6 +39,17 @@ export interface SimApi {
   getElite: () => EliteRecord[]
   registerRenderer: (fn: ((now: number) => void) | null) => void
   getWorld: () => World | null
+  // ——— Laboratorio ———
+  stimulate: (kind: StimKind, x: number, y: number) => void
+  setKnockout: (species: Species, key: string, on: boolean) => void
+  knockoutOn: (species: Species, key: string) => boolean
+  // ——— Arena / Retos ———
+  arenaAddWall: (w: Wall) => void
+  arenaUndoWall: () => void
+  arenaSetGoal: (g: ArenaGoal | null) => void
+  arenaClear: () => void
+  spawnAt: (species: Species, kind: BrainKind, x: number, y: number) => Creature | null
+  arenaStart: () => void
 }
 
 const EMPTY_VIEW: WorldView = {
@@ -40,6 +59,13 @@ const EMPTY_VIEW: WorldView = {
   ambientTemp: DEFAULT_ENV.temperature,
   humidity: DEFAULT_ENV.humidity,
   env: { ...DEFAULT_ENV },
+  mode: 'ecosystem',
+  walls: [],
+  goal: null,
+  runT: 0,
+  arenaRunning: false,
+  arenaResults: [],
+  traces: [],
   counts: {
     flies: 0,
     worms: 0,
@@ -69,6 +95,7 @@ export function useSimulation(): SimApi {
   const [ui, setUi] = useState<WorldView>(EMPTY_VIEW)
   const [paused, setPaused] = useState(false)
   const [speed, setSpeedState] = useState(1)
+  const [mode, setModeState] = useState<SimMode>('ecosystem')
 
   useEffect(() => {
     const world = new World()
@@ -113,6 +140,17 @@ export function useSimulation(): SimApi {
     const w = worldRef.current
     if (w) setUi(w.snapshot())
   }, [])
+
+  const setMode = useCallback(
+    (m: SimMode) => {
+      const w = worldRef.current
+      if (!w || w.mode === m) return
+      w.setMode(m)
+      setModeState(m)
+      refresh()
+    },
+    [refresh],
+  )
 
   const togglePause = useCallback(() => {
     pausedRef.current = !pausedRef.current
@@ -190,10 +228,77 @@ export function useSimulation(): SimApi {
 
   const getWorld = useCallback(() => worldRef.current, [])
 
+  // ——— Laboratorio ———
+
+  const stimulate = useCallback(
+    (kind: StimKind, x: number, y: number) => {
+      worldRef.current?.stimulate(kind, x, y)
+      refresh()
+    },
+    [refresh],
+  )
+
+  const setKnockout = useCallback(
+    (species: Species, key: string, on: boolean) => {
+      worldRef.current?.setKnockout(species, key, on)
+      refresh()
+    },
+    [refresh],
+  )
+
+  const knockoutOn = useCallback(
+    (species: Species, key: string) => worldRef.current?.knockoutOn(species, key) ?? false,
+    [],
+  )
+
+  // ——— Arena ———
+
+  const arenaAddWall = useCallback(
+    (w: Wall) => {
+      worldRef.current?.arenaAddWall(w)
+      refresh()
+    },
+    [refresh],
+  )
+
+  const arenaUndoWall = useCallback(() => {
+    worldRef.current?.arenaUndoWall()
+    refresh()
+  }, [refresh])
+
+  const arenaSetGoal = useCallback(
+    (g: ArenaGoal | null) => {
+      worldRef.current?.arenaSetGoal(g)
+      refresh()
+    },
+    [refresh],
+  )
+
+  const arenaClear = useCallback(() => {
+    worldRef.current?.arenaClear()
+    refresh()
+  }, [refresh])
+
+  const spawnAt = useCallback(
+    (species: Species, kind: BrainKind, x: number, y: number) => {
+      const c = worldRef.current?.spawnAt(species, kind, x, y) ?? null
+      refresh()
+      return c
+    },
+    [refresh],
+  )
+
+  const arenaStart = useCallback(() => {
+    worldRef.current?.arenaStart()
+    refresh()
+  }, [refresh])
+
   return {
     ui,
     paused,
     speed,
+    mode,
+    setMode,
     togglePause,
     setSpeed,
     reset,
@@ -206,5 +311,14 @@ export function useSimulation(): SimApi {
     getElite,
     registerRenderer,
     getWorld,
+    stimulate,
+    setKnockout,
+    knockoutOn,
+    arenaAddWall,
+    arenaUndoWall,
+    arenaSetGoal,
+    arenaClear,
+    spawnAt,
+    arenaStart,
   }
 }

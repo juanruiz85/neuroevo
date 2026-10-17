@@ -327,7 +327,7 @@ function getGraph(): ElegansGraph {
 
 // ——— Genoma ———————————————————————————————————————————————————————————————————
 
-export const ELEGANS_GENES = 25
+export const ELEGANS_GENES = 26
 
 const G_GAINS = 17 // [0..16] ganancias sensoriales
 const G_ACH = 17
@@ -338,6 +338,11 @@ const G_TAU = 21
 const G_VTH = 22
 const G_REFR = 23
 const G_TONIC = 24
+/** [25] Adaptación de tasa (fatiga K⁺ dependiente de actividad): sube el
+ * umbral de cada neurona con cada pico y decae (τ≈2.7 s). 0 en el
+ * ecosistema (vaivén CPG intacto); la línea de laboratorio la activa para
+ * que el comando responda en ráfagas y NUNCA en oscilación perpetua. */
+const G_ADAPT = 25
 
 /** Rangos de cada gen (la mutación respeta límites fisiológicos). */
 const GENE_BOUNDS: [number, number][] = [
@@ -347,6 +352,7 @@ const GENE_BOUNDS: [number, number][] = [
   [1.0, 1.8], // umbral
   [1, 5], // refractario
   [0.05, 0.9], // tónico
+  [0, 0.9], // adaptación de tasa
 ]
 
 /**
@@ -391,7 +397,7 @@ const SMOOTH = 0.28 // suavizado exponencial de los pools motores
 // Habituación al tap (Rankin 1990): depresión por uso de las sinapsis que
 // salen del circuito mecano (ALM/AVM/PLM) y de ASH (fotofobia), con
 // recuperación espontánea en ~1 min de simulación (como el animal).
-const HAB_RATE = 0.0075
+const HAB_RATE = 0.0015 // depresión sináptica leve: la habituación la lleva la fatiga
 const HAB_TAU_TICKS = 60 * 30 // τ = 60 s a 30 ticks/s
 
 export class ElegansBrain implements IBrainAdapter {
@@ -404,10 +410,14 @@ export class ElegansBrain implements IBrainAdapter {
   private readonly V: Float32Array
   private readonly spike: Uint8Array
   private readonly refr: Int8Array
+  /** Fatiga por disparo (adaptación de tasa, gen [25]). */
+  private readonly adapt: Float32Array
   /** Escalas de habituación por arista deprimible (por individuo). */
   private readonly habScale: Float32Array
   /** Neuronas silenciadas (knockout experimental): V≡0. */
   private silenced: Set<number> | null = null
+  /** Amplitud del último tren del electrodo (para la depresión por uso). */
+  private stimDrive = 0
   private fwdRate = 0
   private bwdRate = 0
   private dorRate = 0
@@ -421,12 +431,22 @@ export class ElegansBrain implements IBrainAdapter {
     this.V = new Float32Array(g.n)
     this.spike = new Uint8Array(g.n)
     this.refr = new Int8Array(g.n)
+    this.adapt = new Float32Array(g.n)
     this.habScale = new Float32Array(g.nHabit).fill(1)
   }
 
   /** Knockout experimental: silencia neuronas por índice global. */
   setSilenced(ids: Set<number> | null): void {
     this.silenced = ids
+  }
+
+  /** Electrodo virtual: corriente inyectada en el próximo tick. */
+  stimulate(ids: number[], amp: number): void {
+    for (const i of ids) {
+      if (this.silenced?.has(i)) continue
+      this.V[i] += amp
+    }
+    this.stimDrive = Math.max(this.stimDrive, amp)
   }
 
   forward(
@@ -439,12 +459,15 @@ export class ElegansBrain implements IBrainAdapter {
     const spike = this.spike
     const refr = this.refr
 
-    // 1) Fuga (τ del genoma) y periodo refractario.
+    // 1) Fuga (τ del genoma), periodo refractario y decaimiento de la
+    //    fatiga de disparo (adaptación de tasa, τ ≈ 2.7 s).
     const leak = Math.exp(-1 / w[G_TAU])
+    const adaptK = w[G_ADAPT]
     for (let i = 0; i < g.n; i++) {
       V[i] *= leak
       if (refr[i] > 0) refr[i]--
       spike[i] = 0
+      this.adapt[i] *= 0.9955 // τ ≈ 3.7 s: fatiga que se recupera en el reposo
       if (this.silenced?.has(i)) V[i] = 0 // knockout: ablación virtual
     }
 
@@ -456,13 +479,16 @@ export class ElegansBrain implements IBrainAdapter {
       }
     }
 
-    // 1c) Depresión por uso: un tap/luz fuerte deprime las sinapsis que
-    //     salen del circuito mecano/fótico (Rankin 1990, por sinapsis).
-    const tapF = inputs[CH.TOUCH_FRONT] ?? 0
-    const tapB = inputs[CH.TOUCH_BACK] ?? 0
+    // 1c) Depresión por uso (habituación, Rankin 1990): SOLO los estímulos
+    //     del LABORATORIO (el tren del electrodo sobre el circuito mecano
+    //     o los transitorios luminosos) deprimen las sinapsis que salen de
+    //     esos sensores. La exploración normal (choques con paredes) no
+    //     cuenta: el animal se habitúa al estímulo del experimento repetido.
+    const tapAmp = this.stimDrive
     const lux = inputs[CH.LIGHT] ?? 0
-    if (tapF > 0.55 || tapB > 0.55 || lux > 0.55) {
-      const amp = Math.max(tapF, tapB, lux)
+    this.stimDrive *= 0.5 // el drive del electrodo vive un tick
+    if (tapAmp > 0.55 || lux > 0.55) {
+      const amp = Math.max(tapAmp, lux)
       const d = HAB_RATE * Math.max(0, (amp - 0.55) / 0.45)
       if (d > 0) {
         for (let i = 0; i < g.n; i++) {
@@ -490,17 +516,19 @@ export class ElegansBrain implements IBrainAdapter {
       V[s.idx] += drive * s.gain * s.sign * w[s.ch]
     }
 
-    // 4) Umbral, disparo y entrega sináptica inmediata (una pasada por tick:
-    //    las cascadas continúan en el siguiente tick, evitando espirales).
+    // 4) Umbral (con fatiga de disparo), disparo y entrega sináptica
+    //    inmediata (una pasada por tick: las cascadas continúan en el
+    //    siguiente tick, evitando espirales).
     const vth = w[G_VTH]
     const refractory = Math.round(w[G_REFR])
     let spiked = 0
     for (let i = 0; i < g.n; i++) {
-      if (refr[i] > 0 || V[i] < vth) continue
+      if (refr[i] > 0 || V[i] < vth + adaptK * this.adapt[i]) continue
       spike[i] = 1
       spiked++
       V[i] = V_RESET
       refr[i] = refractory
+      if (this.adapt[i] < 6) this.adapt[i] += 0.22
       // Entrega a los postsinápticos (voltage < 1 = frío: señales débiles)
       // con la escala de habituación si la arista está deprimida.
       for (let e = g.srcOff[i]; e < g.srcOff[i + 1]; e++) {
@@ -594,6 +622,29 @@ export class ElegansBrain implements IBrainAdapter {
 /** Índices de neuronas por nombre exacto (knockouts del Laboratorio). */
 export function getElegansIndicesByNames(names: string[]): number[] {
   return names.map((n) => idxOf(n)).filter((i) => i >= 0)
+}
+
+/**
+ * Línea de laboratorio ISOGÉNICA (como la N2 real de los laboratorios de
+ * C. elegans: clones idénticos): animal en reposo (CPG bajo el umbral) y
+ * con el reflejo tap→comando nítido — la ráfaga aferente larga (0.8 s con
+ * adaptación) integra en PVC/AVD por la transmisión glutamatérgica alta
+ * (ALM/AVM/PLM→PVC/AVD, Wicks & Rankin 1997). Calibrada en
+ * /home/z/calib (grid-lab2 + smoke-final).
+ */
+export function elegansLabGenome(_rng?: Rng): Float32Array {
+  const g = new Float32Array(ELEGANS_GENES).fill(1)
+  g[0] = 0.9 // ganancia del canal tónico
+  g[G_ACH] = 1.0
+  g[G_GLU] = 1.55 // reflejo mecanosensorial glutamatérgico presente
+  g[G_GABA] = 1.0
+  g[G_MONO] = 1.0
+  g[G_TAU] = 6.0
+  g[G_VTH] = 1.2
+  g[G_REFR] = 3
+  g[G_TONIC] = 0.26 // V_ss ≈ 1.0 < umbral: animal en reposo
+  g[G_ADAPT] = 0.3 // fatiga de disparo: ráfagas sí, epilepsia jamás
+  return g
 }
 
 function meanClass(g: ElegansGraph, V: Float32Array, cls: 0 | 1 | 2): number {

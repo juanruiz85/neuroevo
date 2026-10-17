@@ -70,6 +70,10 @@ export function renderWorld(
   ctx.stroke()
   ctx.setLineDash([])
 
+  // Paredes de la arena y meta (Modo Retos)
+  if (world.walls.length) drawWalls(ctx, world)
+  if (world.goal) drawGoal(ctx, world, now)
+
   // Alimentos
   for (const f of world.foods) {
     if (!f.dead) drawFood(ctx, f, now)
@@ -105,6 +109,9 @@ export function renderWorld(
   // Selección
   const sel = world.getSelected()
   if (sel) drawSelection(ctx, world, sel, now)
+
+  // Estímulos activos del Laboratorio (encima de todo)
+  if (world.stimuli.length) drawStimuli(ctx, world, now)
 }
 
 function drawFood(ctx: CanvasRenderingContext2D, f: Food, now: number): void {
@@ -294,6 +301,161 @@ function drawWorm(ctx: CanvasRenderingContext2D, c: Creature, now: number): void
     ctx.stroke()
   }
   void now
+}
+
+// ——— Arena: paredes y meta ——————————————————————————————————————————————
+
+function drawWalls(ctx: CanvasRenderingContext2D, world: World): void {
+  ctx.lineCap = 'round'
+  for (const w of world.walls) {
+    ctx.strokeStyle = 'rgba(148, 163, 184, 0.16)'
+    ctx.lineWidth = 11
+    ctx.beginPath()
+    ctx.moveTo(w.x1, w.y1)
+    ctx.lineTo(w.x2, w.y2)
+    ctx.stroke()
+    ctx.strokeStyle = '#64748b'
+    ctx.lineWidth = 7
+    ctx.beginPath()
+    ctx.moveTo(w.x1, w.y1)
+    ctx.lineTo(w.x2, w.y2)
+    ctx.stroke()
+    ctx.strokeStyle = 'rgba(226, 232, 240, 0.55)'
+    ctx.lineWidth = 1.4
+    ctx.beginPath()
+    ctx.moveTo(w.x1, w.y1)
+    ctx.lineTo(w.x2, w.y2)
+    ctx.stroke()
+  }
+  ctx.lineCap = 'butt'
+}
+
+function drawGoal(ctx: CanvasRenderingContext2D, world: World, now: number): void {
+  const g = world.goal!
+  const pulse = (now % 1600) / 1600
+  ctx.save()
+  // Anillo expansivo de la meta
+  ctx.strokeStyle = `rgba(52, 211, 153, ${(0.55 * (1 - pulse)).toFixed(3)})`
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  ctx.arc(g.x, g.y, g.r * (0.35 + 0.75 * pulse), 0, Math.PI * 2)
+  ctx.stroke()
+  // Zona de llegada
+  const grad = ctx.createRadialGradient(g.x, g.y, 2, g.x, g.y, g.r)
+  grad.addColorStop(0, 'rgba(52, 211, 153, 0.30)')
+  grad.addColorStop(1, 'rgba(52, 211, 153, 0.04)')
+  ctx.fillStyle = grad
+  ctx.beginPath()
+  ctx.arc(g.x, g.y, g.r, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = '#34d399'
+  ctx.lineWidth = 1.6
+  ctx.setLineDash([6, 5])
+  ctx.beginPath()
+  ctx.arc(g.x, g.y, g.r, 0, Math.PI * 2)
+  ctx.stroke()
+  ctx.setLineDash([])
+  // Bandera central
+  ctx.strokeStyle = '#d1fae5'
+  ctx.lineWidth = 1.4
+  ctx.beginPath()
+  ctx.moveTo(g.x, g.y)
+  ctx.lineTo(g.x, g.y - 14)
+  ctx.stroke()
+  ctx.fillStyle = '#34d399'
+  ctx.beginPath()
+  ctx.moveTo(g.x, g.y - 14)
+  ctx.lineTo(g.x + 10, g.y - 10.5)
+  ctx.lineTo(g.x, g.y - 7)
+  ctx.closePath()
+  ctx.fill()
+  ctx.restore()
+}
+
+// ——— Laboratorio: estímulos activos ————————————————————————————————————————
+
+function drawStimuli(ctx: CanvasRenderingContext2D, world: World, now: number): void {
+  for (const s of world.stimuli) {
+    const frac = Math.min(1, s.t / s.dur)
+    switch (s.kind) {
+      case 'tap': {
+        // Ondas concéntricas del golpe al plato
+        ctx.strokeStyle = `rgba(251, 191, 36, ${(0.7 * (1 - frac)).toFixed(3)})`
+        ctx.lineWidth = 2.5
+        for (let k = 0; k < 3; k++) {
+          const r = 24 + (frac * 190 + k * 64) % 210
+          ctx.beginPath()
+          ctx.arc(s.x, s.y, r, 0, Math.PI * 2)
+          ctx.stroke()
+        }
+        break
+      }
+      case 'shadow': {
+        // Disco oscuro que crece (looming)
+        const r = 30 + 170 * frac
+        const grad = ctx.createRadialGradient(s.x, s.y, r * 0.2, s.x, s.y, r)
+        grad.addColorStop(0, `rgba(2, 6, 12, ${(0.66 * (0.4 + 0.6 * frac)).toFixed(3)})`)
+        grad.addColorStop(0.85, `rgba(2, 6, 12, ${(0.5 * (0.4 + 0.6 * frac)).toFixed(3)})`)
+        grad.addColorStop(1, 'rgba(2, 6, 12, 0)')
+        ctx.fillStyle = grad
+        ctx.beginPath()
+        ctx.arc(s.x, s.y, r, 0, Math.PI * 2)
+        ctx.fill()
+        ctx.strokeStyle = `rgba(148, 163, 184, ${0.25 * frac})`
+        ctx.lineWidth = 1
+        ctx.beginPath()
+        ctx.arc(s.x, s.y, r, 0, Math.PI * 2)
+        ctx.stroke()
+        break
+      }
+      case 'flash': {
+        ctx.fillStyle = `rgba(255, 252, 230, ${(0.5 * (1 - frac)).toFixed(3)})`
+        ctx.fillRect(0, 0, world.width, world.height)
+        break
+      }
+      case 'heat': {
+        // Ondas térmicas rojas que suben
+        ctx.strokeStyle = `rgba(244, 63, 94, ${(0.5 * Math.sin(Math.PI * frac)).toFixed(3)})`
+        ctx.lineWidth = 2
+        for (let k = 0; k < 4; k++) {
+          const y = ((now / 22 + k * 90) % 300) + world.height - 310
+          ctx.beginPath()
+          ctx.moveTo(0, y)
+          ctx.bezierCurveTo(
+            world.width * 0.3, y - 18,
+            world.width * 0.7, y + 18,
+            world.width, y,
+          )
+          ctx.stroke()
+        }
+        break
+      }
+      case 'foodDrop': {
+        const r = 12 + frac * 26
+        ctx.strokeStyle = `rgba(250, 204, 21, ${(0.8 * (1 - frac)).toFixed(3)})`
+        ctx.lineWidth = 2
+        ctx.beginPath()
+        ctx.arc(s.x, s.y, r, 0, Math.PI * 2)
+        ctx.stroke()
+        break
+      }
+      case 'airPuff': {
+        // Flechas radiales del chorro de aire
+        ctx.strokeStyle = `rgba(203, 213, 225, ${(0.85 * (1 - frac)).toFixed(3)})`
+        ctx.lineWidth = 2
+        for (let k = 0; k < 8; k++) {
+          const a = (k / 8) * Math.PI * 2 + 0.3
+          const r0 = 18 + frac * 60
+          const r1 = 40 + frac * 90
+          ctx.beginPath()
+          ctx.moveTo(s.x + Math.cos(a) * r0, s.y + Math.sin(a) * r0)
+          ctx.lineTo(s.x + Math.cos(a) * r1, s.y + Math.sin(a) * r1)
+          ctx.stroke()
+        }
+        break
+      }
+    }
+  }
 }
 
 // Huevo: gusano → óvalo crema; mosca → alargado blanco-perla (los huevos

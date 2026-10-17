@@ -391,7 +391,7 @@ function randomGenome(rng: Rng): Float32Array {
 const V_RESET = 0.12
 const SMOOTH = 0.28 // suavizado exponencial de los pools
 // Habituación: depresión por uso de las aristas mecano/visuales.
-const HAB_RATE = 0.0075 // por tick de disparo con amplitud 1 (≈ ×0.96/tap)
+const HAB_RATE = 0.0015 // depresión sináptica leve: la habituación la lleva la fatiga
 const HAB_TAU_TICKS = 60 * 15 // τ = 60 s (el disparo va cada 2 ticks)
 
 export class DrosophilaBrain implements IBrainAdapter {
@@ -410,6 +410,8 @@ export class DrosophilaBrain implements IBrainAdapter {
   private habDirty = false
   /** Neuronas silenciadas (knockout experimental): V≡0. */
   private silenced: Set<number> | null = null
+  /** Amplitud del último tren del electrodo (para la depresión por uso). */
+  private stimDrive = 0
   /** Fase del tick-stepping 1:2 (0 = integración, 1 = disparo). */
   private phase = 0
   private fwdRate = 0
@@ -430,6 +432,16 @@ export class DrosophilaBrain implements IBrainAdapter {
   /** Knockout experimental: silencia neuronas por índice global. */
   setSilenced(ids: Set<number> | null): void {
     this.silenced = ids
+  }
+
+  /** Electrodo virtual: corriente inyectada en el próximo tick. */
+  stimulate(ids: number[], amp: number): void {
+    const V = this.V
+    for (const i of ids) {
+      if (this.silenced !== null && this.silenced.has(i)) continue
+      if (i >= 0 && i < V.length) V[i] += amp
+    }
+    this.stimDrive = Math.max(this.stimDrive, amp)
   }
 
   forward(
@@ -505,10 +517,11 @@ export class DrosophilaBrain implements IBrainAdapter {
       if (allAlive) this.habDirty = false
     }
 
-    // 1c) Depresión por uso: un estímulo mecano/luminoso fuerte deprime
-    //     las sinapsis que salen de esos sensores (Rankin 1990, por sinapsis).
-    const tapAmp = inputs[DCH.TOUCH_FRONT] ?? 0
+    // 1c) Depresión por uso (habituación): SOLO estímulos del Laboratorio
+    //     (electrodo mecano o transitorios luminosos).
+    const tapAmp = this.stimDrive
     const shadowAmp = inputs[DCH.LIGHT] ?? 0
+    this.stimDrive *= 0.5
     if (tapAmp > 0.55 || shadowAmp > 0.55) {
       const dTap = HAB_RATE * Math.max(0, (tapAmp - 0.55) / 0.45)
       const dVis = HAB_RATE * Math.max(0, (shadowAmp - 0.55) / 0.45)
@@ -803,4 +816,19 @@ export function getDrosophilaIndicesByGroup(
     if (neurons[i].a === group) out.push(i)
   }
   return out
+}
+
+/**
+ * Genoma estándar del Laboratorio: la mosca real del experimento está
+ * posada (tónico de vuelo bajo) y sensible (ACh alta, umbral bajo): el
+ * fondo neural calla y el escape visual (looming) produce la respuesta
+ * nítida del circuito PR→DNs.
+ */
+export function drosophilaLabGenome(rng?: Rng): Float32Array {
+  const g = randomGenome(rng ?? new Rng())
+  g[G_TONIC] = 0.3
+  g[0] = 0.8
+  g[G_ACH] = 1.6
+  g[G_VTH] = 1.18
+  return g
 }

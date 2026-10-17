@@ -61,6 +61,13 @@ export interface IBrainAdapter {
    * (control sin biología) no lo implementa.
    */
   setSilenced?(ids: Set<number> | null): void
+
+  /**
+   * Opcional: electrodo virtual — inyecta corriente a neuronas concretas
+   * en el próximo tick (el tap del Laboratorio excita directamente los
+   * mecanorreceptores del cuerpo, como el golpe real al plato).
+   */
+  stimulate?(ids: number[], amp: number): void
 }
 
 /** Actividad de un conectoma biológico para visualizar en vivo. */

@@ -749,3 +749,73 @@ Stage Summary:
   C. elegans (300) y D. melanogaster larvario (2.956). La mosca se
   orienta (L/R + klinotaxis), come, pone huevos SOLO por su circuito y
   evoluciona (G28/15 min) con presupuesto de CPU sobrado.
+
+---
+Task ID: 15
+Agent: main (Z.ai Code)
+Task: Fundación del motor experimental: modos de simulación, paredes/arena,
+estímulos del laboratorio, knockouts, habituación sináptica, trazas, y
+calibración rigurosa del circuito del tap (Rankin 1990).
+
+Work Log:
+- types.ts: SimMode ('ecosystem'|'arena'|'lab'), Wall, ArenaGoal,
+  ArenaResult, StimKind/ActiveStimulus (tap/shadow/flash/heat/foodDrop/
+  airPuff), TracePoint. WorldView ampliado (mode/walls/goal/runT/
+  arenaRunning/arenaResults/traces).
+- knockouts.ts (NUEVO): 8 grupos del gusano (ASH, ASE, AFD, comando A,
+  PVC, HSN+VC, PLM, ALM/AVM) y 9 de la mosca (ORN/PR/NOC/MEC/GUT/GRN/
+  RSP/DN-VNC/DN-SEZ) con knockoutIndices() → índices reales.
+- adapter.ts: stimulate?(ids, amp) — electrodo virtual. elegans.ts y
+  drosophila.ts: implementan electrodo + knockouts; habituación por
+  depresión homosináptica en aristas mecano/visuales (Rankin 1990).
+- world.ts: mode + setMode() (lab abre plato de agar 20 °C con luz
+  estable); walls/goal/arenaStart/resultados con cronómetro y causas
+  (goal/poison/starve/age); stimulate() con 6 estímulos; stimToInputs()
+  (el TAP excita directamente el circuito mecanorreceptor REAL de cada
+  especie: ALM/AVM/PLM del gusano — Wicks & Rankin 1997; MEC de la mosca);
+  setKnockout()/knockoutOn(); trazas 10 Hz del cerebro seleccionado;
+  spawnAt(species, kind, genome) con arquitectura elegible; arena:
+  addWall/undoWall/setGoal/clear; reproducción solo en ecosistema.
+- creature.ts: colisión círculo-segmento con paredes (rebote + tacto),
+  senseFly/senseWorm reescritos, arenaDone/poisoned, campos de fase.
+- render.ts: paredes slate, meta esmeralda pulsante con bandera, y los 6
+  estímulos animados (ondas del tap, disco de sombra que crece, flash,
+  ondas de calor, gota, flechas del chorro).
+- use-simulation.ts: API completa (setMode, stimulate, setKnockout,
+  arena*, spawnAt). sim-header: selector de modo Ecosistema/Retos/
+  Laboratorio. page.tsx: panel lateral según modo. Shells arena-panel.tsx
+  y lab-panel.tsx con contrato estable para Tasks 16-a/b.
+- BUG v1.2 CAZADO Y CORREGIDO: countNeighbors se AUTO-CONTABA por error
+  de redondeo flotante (d²=81±ε): el gusano creía tocarse la nariz a sí
+  mismo ~40 % de los ticks → touchF perpetuo + feromona fantasma 0.2.
+  Fix: parámetro exclude (feromona, multitud y tacto ya no se auto-cuentan).
+- ADAPTACIÓN SENSORIAL REAL añadida a los cerebros biológicos: luz
+  (LITE-1), humedad (BAG) y termo (AFD, detector de rampas — Goodman &
+  Sengupta) responden al CAMBIO (τ 3-4 s), no al nivel: el fondo neural
+  del animal en reposo calla (antes: ASH saturado todo el día por la luz
+  constante). La ANN de control conserva los niveles crudos.
+- GEN 26 DEL GUSANO: adaptación de tasa (fatiga K⁺ por disparo, τ≈3.7 s,
+  +0.22 umbral/pico): ráfagas sí, oscilación perpetua jamás. 0 en el
+  ecosistema (vaivén v1.2 intacto); la línea de laboratorio la activa.
+  Genoma 25→26 con migración automática de registros.
+- LÍNEA DE LABORATORIO ISOGÉNICA (elegansLabGenome, como la N2 real):
+  tónico 0.26 (CPG bajo umbral), Glu 1.55 (el reflejo del tap es
+  glutamatérgico: ALM/AVM/PLM→PVC), τ 6, umbral 1.2, adapt 0.3.
+  drosophilaLabGenome equivalente.
+- CALIBRACIÓN ITERATIVA (12 rondas, /home/z/calib): se cazaron y
+  resolvieron en orden: auto-contacto, luz constante→ASH saturado,
+  termo constante→AFD saturado, gen Glu bajo, bistabilidad/kindling del
+  comando (fix: fatiga de disparo), contaminación del azúcar en el plato,
+  muerte por inanición durante el protocolo del banco.
+- BANCO FORMAL DEL TAP (banco-tap.ts): 5/5 ✓ — fondo 0.0 picos, reflejo
+  1.78 picos netos, habituación →0 % con 30 taps, recuperación 2.00 tras
+  90 s de reposo, knockout ALM+PLM 1.67→0.00.
+- Regresión ecosistema 15 min tras TODOS los cambios: gusanos 60-79,
+  moscas drosophila 12-21, huevos 12-19, G27, 2.25 ms/tick (p95 3.0).
+  tsc 0 · lint 0.
+
+Stage Summary:
+- El motor experimental está completo y CALIBRADO con el experimento
+  clásico replicado (Rankin 1990) sobre el conectoma real: reposo →
+  reflejo → habituación → recuperación → ablación. Los tres modos
+  comparten el mismo motor. Listo para las UIs de las Tasks 16-a/b/c.

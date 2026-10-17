@@ -5,6 +5,7 @@ import { Creature, flyDevRate, wormDevRate, wormStageDuration } from './creature
 import { Brain } from './nn'
 import { ElegansBrain, ELEGANS_GENES } from './connectome/elegans'
 import { DrosophilaBrain, DROSOPHILA_GENES } from './connectome/drosophila'
+import { knockoutIndices } from './connectome/knockouts'
 import { Rng } from './rng'
 import {
   DEFAULT_ENV,
@@ -13,14 +14,22 @@ import {
   SPECIES_CONFIG,
   WORM_LIFE,
   clamp,
+  type ActiveStimulus,
+  type ArenaGoal,
+  type ArenaResult,
   type CreatureView,
   type EliteRecord,
   type EnvParams,
   type FoodKind,
+  type StimKind,
+  type SimMode,
   type Species,
   type StatPoint,
+  type TracePoint,
+  type Wall,
   type WorldView,
 } from './types'
+import type { BrainKind } from './connectome/adapter'
 
 const GRID = 130 // tamaño de celda de la grilla espacial
 
@@ -118,6 +127,8 @@ export class World {
   readonly width: number
   readonly height: number
   env: EnvParams
+  /** Modo de simulación (ecosistema por defecto). */
+  mode: SimMode = 'ecosystem'
   time = 0
   ticks = 0
   readonly rng = new Rng()
@@ -132,6 +143,29 @@ export class World {
   births = 0
   deaths = 0
   readonly stats: StatPoint[] = []
+
+  // ——— Arena / Retos (Fase 2) ————————————————————————————————————————
+  /** Paredes colocadas por el editor. */
+  walls: Wall[] = []
+  /** Meta de llegada. */
+  goal: ArenaGoal | null = null
+  /** Cronómetro del ensayo en marcha. */
+  runT = 0
+  /** true entre arenaStart() y el final del ensayo. */
+  arenaRunning = false
+  /** Resultados de participantes (llegadas y muertes). */
+  arenaResults: ArenaResult[] = []
+
+  // ——— Laboratorio (Fase 2) ——————————————————————————————————————————
+  /** Estímulos activos (tap, sombra, flash, calor, chorro de aire). */
+  stimuli: ActiveStimulus[] = []
+  /** Sobrecarga térmica activa de los pulsos de calor (°C). */
+  stimTemp = 0
+  /** Knockouts activos por especie (índices reales del conectoma). */
+  private knockouts: Partial<Record<Species, Set<number>>> = {}
+  /** Trazas del cerebro seleccionado (Laboratorio). */
+  traces: TracePoint[] = []
+  private traceTimer = 0
 
   private readonly counts: Record<Species, number> = { fly: 0, worm: 0 }
   private readonly foodCounts: Record<FoodKind, number> = {
@@ -162,7 +196,7 @@ export class World {
       this.foodGrid.push([])
       this.creatureGrid.push([])
     }
-    this.populate()
+    if (this.mode === 'ecosystem') this.populate()
   }
 
   reset(): void {
@@ -179,10 +213,42 @@ export class World {
     this.deaths = 0
     this.stats.length = 0
     this.statTimer = 0
+    this.runT = 0
+    this.arenaRunning = false
+    this.arenaResults = []
+    this.stimuli = []
+    this.stimTemp = 0
+    this.traces = []
+    this.traceTimer = 0
     for (const k of Object.keys(this.spawnTimers) as FoodKind[]) {
       this.spawnTimers[k] = 0
     }
-    this.populate()
+    if (this.mode === 'ecosystem') this.populate()
+  }
+
+  /**
+   * Cambia el modo de simulación: ecosistema (población inicial + clima),
+   * arena (mundo vacío para construir un reto) o laboratorio (un plato
+   * limpio con estímulos y knockouts). Conserva paredes/meta entre sesiones
+   * de arena.
+   */
+  setMode(mode: SimMode): void {
+    const keepWalls = mode === 'arena'
+    this.mode = mode
+    if (mode !== 'arena') {
+      this.walls = []
+      this.goal = null
+    }
+    this.knockouts = {}
+    this.reset()
+    if (mode === 'lab') {
+      // Plato de agar estándar: 20 °C (temperatura de mantenimiento de
+      // C. elegans), luz y humedad estables. El experimentalista trae sus
+      // propios organismos, comida y estímulos.
+      this.env.temperature = 20
+      this.env.dayLength = 600 // luz estable durante el ensayo
+      this.addFoodAt('sugar', this.width / 2, this.height / 2 + 140)
+    }
   }
 
   private populate(): void {
@@ -222,12 +288,62 @@ export class World {
 
     const phase = (this.time / this.env.dayLength) % 1
     this.light = clamp(0.5 + 0.5 * Math.sin(phase * Math.PI * 2), 0, 1)
-    this.ambientTemp = this.env.temperature + (this.light - 0.5) * 7
+    this.ambientTemp = this.env.temperature + (this.light - 0.5) * 7 + this.stimTemp
+
+    // ——— Estímulos del Laboratorio: vida y decaimiento ————————————————————
+    for (const s of this.stimuli) s.t += dt
+    this.stimuli = this.stimuli.filter((s) => s.t < s.dur)
+    // El pulso de calor se apaga al caducar su estímulo.
+    if (this.stimTemp > 0 && !this.stimuli.some((s) => s.kind === 'heat')) {
+      this.stimTemp = Math.max(0, this.stimTemp - dt * 6)
+    }
+
+    if (this.arenaRunning) this.runT += dt
 
     this.rebuildGrids()
 
     for (const c of this.creatures) {
       if (c.alive) c.tick(this, dt)
+    }
+
+    // ——— Arena: llegada a la meta y registro de desenlaces ————————————————
+    if (this.mode === 'arena') {
+      for (const c of this.creatures) {
+        if (c.arenaDone || !c.alive) continue
+        if (this.goal) {
+          const g = this.goal
+          const d2 = (c.x - g.x) ** 2 + (c.y - g.y) ** 2
+          if (d2 <= g.r * g.r) {
+            c.arenaDone = true
+            c.arenaOutcome = 'goal'
+            c.alive = false // se retira al tocar la meta
+            this.arenaResults.push({
+              id: c.id,
+              species: c.species,
+              brainKind: c.brain.kind,
+              time: Math.round(this.runT * 100) / 100,
+              success: true,
+              cause: 'goal',
+            })
+          }
+        }
+      }
+      // Muertes registradas con su causa.
+      for (const c of this.creatures) {
+        if (c.arenaDone || c.alive) continue
+        c.arenaDone = true
+        this.arenaResults.push({
+          id: c.id,
+          species: c.species,
+          brainKind: c.brain.kind,
+          time: Math.round(this.runT * 100) / 100,
+          success: false,
+          cause: c.poisoned ? 'poison' : c.age > SPECIES_CONFIG[c.species].maxAge ? 'age' : 'starve',
+        })
+      }
+      if (this.arenaRunning && this.creatures.every((c) => !c.alive)) {
+        this.arenaRunning = false
+      }
     }
 
     // Huevos: la embriogénesis avanza con la temperatura (Q10 propia de
@@ -248,39 +364,36 @@ export class World {
       }
       if (!e.hatched && e.embryoT <= 0 && this.counts[e.species] < caps[e.species]) {
         e.hatched = true
-        if (e.species === 'worm') {
-          // Eclosión como L1 con reserva de vitelo.
-          this.creatures.push(
-            new Creature({
-              species: 'worm',
-              x: clamp(e.x, 15, this.width - 15),
-              y: clamp(e.y, 15, this.height - 15),
-              brain: e.brain,
-              generation: e.generation,
-              parentGen: e.parentGen,
-              maxSpeed: e.maxSpeed,
-              vision: e.vision,
-              energy: WORM_LIFE.yolkEnergy,
-              stage: 'l1',
-            }),
-          )
-        } else {
-          // Mosca: nace adulta joven (no simulamos la pupa, documentado);
-          // vitelo rico del huevo real de Drosophila.
-          this.creatures.push(
-            new Creature({
-              species: 'fly',
-              x: clamp(e.x, 15, this.width - 15),
-              y: clamp(e.y, 15, this.height - 15),
-              brain: e.brain,
-              generation: e.generation,
-              parentGen: e.parentGen,
-              maxSpeed: e.maxSpeed,
-              vision: e.vision,
-              energy: 40,
-            }),
-          )
-        }
+        const baby =
+          e.species === 'worm'
+            ? // Eclosión como L1 con reserva de vitelo.
+              new Creature({
+                species: 'worm',
+                x: clamp(e.x, 15, this.width - 15),
+                y: clamp(e.y, 15, this.height - 15),
+                brain: e.brain,
+                generation: e.generation,
+                parentGen: e.parentGen,
+                maxSpeed: e.maxSpeed,
+                vision: e.vision,
+                energy: WORM_LIFE.yolkEnergy,
+                stage: 'l1',
+              })
+            : // Mosca: nace adulta joven (no simulamos la pupa, documentado);
+              // vitelo rico del huevo real de Drosophila.
+              new Creature({
+                species: 'fly',
+                x: clamp(e.x, 15, this.width - 15),
+                y: clamp(e.y, 15, this.height - 15),
+                brain: e.brain,
+                generation: e.generation,
+                parentGen: e.parentGen,
+                maxSpeed: e.maxSpeed,
+                vision: e.vision,
+                energy: 40,
+              })
+        this.creatures.push(baby)
+        this.applyKnockouts(baby) // knockout vigente → también al nacer
         this.counts[e.species]++
         this.births++
         if (e.generation > this.maxGen) this.maxGen = e.generation
@@ -291,14 +404,17 @@ export class World {
       this.eggs = this.eggs.filter((e) => !e.dead && !e.hatched)
     }
 
-    // Los cadáveres se reciclan como detritos (ciclo de energía).
-    for (const c of this.creatures) {
-      if (
-        !c.alive &&
-        this.rng.next() < 0.6 &&
-        this.foodCounts.detritus < this.detritusCap() + 20
-      ) {
-        this.addFood(new Food('detritus', c.x, c.y, 18, 4, 60))
+    // Los cadáveres se reciclan como detritos (ciclo de energía), solo en
+    // el ecosistema abierto (en arena/lab no hay lluvia de materia).
+    if (this.mode === 'ecosystem') {
+      for (const c of this.creatures) {
+        if (
+          !c.alive &&
+          this.rng.next() < 0.6 &&
+          this.foodCounts.detritus < this.detritusCap() + 20
+        ) {
+          this.addFood(new Food('detritus', c.x, c.y, 18, 4, 60))
+        }
       }
     }
 
@@ -313,12 +429,31 @@ export class World {
     }
     if (this.ticks % 15 === 0) this.foods = this.foods.filter((f) => !f.dead)
 
-    this.spawnFoodTimers(dt)
+    if (this.mode === 'ecosystem') this.spawnFoodTimers(dt)
 
     this.statTimer += dt
     if (this.statTimer >= 0.5) {
       this.statTimer -= 0.5
       this.pushStatPoint()
+    }
+
+    // ——— Trazas del cerebro seleccionado (Laboratorio, 10 Hz) ————————————
+    this.traceTimer += dt
+    if (this.traceTimer >= 0.1) {
+      this.traceTimer -= 0.1
+      const sel = this.getSelected()
+      if (sel && sel.brain.connectomeView) {
+        const h = sel.brain.hA
+        const isWorm = sel.brain.kind === 'elegans'
+        this.traces.push({
+          t: Math.round(this.time * 10) / 10,
+          fwd: r2(h[3]),
+          rev: r2(h[4]),
+          egg: r2(isWorm ? h[6] : h[5]),
+          spike: r2(h[7] ?? h[6]),
+        })
+        if (this.traces.length > 900) this.traces.shift()
+      }
     }
   }
 
@@ -380,6 +515,7 @@ export class World {
     y: number,
     range: number,
     species: Species | 'any',
+    exclude?: import('./creature').Creature,
   ): number {
     const cx = clamp((x / GRID) | 0, 0, this.cols - 1)
     const cy = clamp((y / GRID) | 0, 0, this.rows - 1)
@@ -393,6 +529,7 @@ export class World {
         if (xx < 0 || xx >= this.cols) continue
         for (const c of this.creatureGrid[yy * this.cols + xx]) {
           if (!c.alive) continue
+          if (c === exclude) continue // uno no se toca a sí mismo
           if (species !== 'any' && c.species !== species) continue
           const ddx = c.x - x
           const ddy = c.y - y
@@ -405,11 +542,12 @@ export class World {
 
   /**
    * Feromona de conglomerado (ascarósidos): la densidad local de gusanos
-   * como proxy del nivel de feromona secretada al medio. Alta densidad
-   * frena la maduración de huevos y (con hambre) provoca la dauer.
+   * como proxy del nivel de feromona secretada al medio (sin auto-contarse:
+   * un gusano solitario no huele su propia feromona). Alta densidad frena
+   * la maduración de huevos y (con hambre) provoca la dauer.
    */
-  wormPheromone(x: number, y: number): number {
-    return Math.min(1, this.countNeighbors(x, y, 70, 'worm') / 5)
+  wormPheromone(x: number, y: number, exclude?: import('./creature').Creature): number {
+    return Math.min(1, this.countNeighbors(x, y, 70, 'worm', exclude) / 5)
   }
 
   eatFoodAt(c: Creature): void {
@@ -430,6 +568,7 @@ export class World {
           if (ddx * ddx + ddy * ddy > rr * rr) continue
           if (f.kind === 'poison') {
             c.energy += FOOD_INFO.poison.energy // negativo: daño
+            c.poisoned = true
             f.dead = true
             this.foodCounts.poison--
             return
@@ -457,6 +596,8 @@ export class World {
    * (autofecundación) y eclosionará según su especie.
    */
   layEgg(parent: Creature): void {
+    // En arena/laboratorio no hay reproducción: protocolo limpio.
+    if (this.mode !== 'ecosystem') return
     const cfg = SPECIES_CONFIG[parent.species]
     if (this.counts[parent.species] + this.eggs.length >= cfg.popCap) return
     const rng = this.rng
@@ -501,8 +642,9 @@ export class World {
   spawnChild(parent: Creature): void {
     // Solo las moscas ANN (especie de control) se reproducen por brotes
     // directos; los gusanos y las moscas biológicas ponen huevos a través
-    // de su circuito neural.
+    // de su circuito neural. En arena/lab no hay reproducción.
     if (parent.species !== 'fly' || parent.brain.kind !== 'ann') return
+    if (this.mode !== 'ecosystem') return
     const cfg = SPECIES_CONFIG[parent.species]
     if (this.counts[parent.species] >= cfg.popCap) return
     const rng = this.rng
@@ -640,6 +782,13 @@ export class World {
       ambientTemp: this.ambientTemp,
       humidity: this.env.humidity,
       env: { ...this.env },
+      mode: this.mode,
+      walls: this.walls.slice(),
+      goal: this.goal ? { ...this.goal } : null,
+      runT: Math.round(this.runT * 100) / 100,
+      arenaRunning: this.arenaRunning,
+      arenaResults: this.arenaResults.slice(),
+      traces: this.traces.slice(-240),
       counts: {
         flies: this.counts.fly,
         worms: this.counts.worm,
@@ -717,6 +866,237 @@ export class World {
       ...base,
       ...worm,
       ...(con ? { connectome: { v: con.v as number[], s: con.s as number[] } } : {}),
+    }
+  }
+
+  // ——— Laboratorio: estímulos y knockouts ————————————————————————————
+
+  /**
+   * Aplica un estímulo del Laboratorio en (x, y). Los estímulos activos se
+   * traducen a corriente en los canales sensoriales correctos de cada
+   * criatura (ver stimToInputs) y algunos tienen efecto físico inmediato.
+   */
+  stimulate(kind: StimKind, x: number, y: number): void {
+    const mk = (dur: number, amp = 1): ActiveStimulus => ({
+      kind, x, y, t: 0, dur, amp,
+    })
+    switch (kind) {
+      case 'tap':
+        // El golpe al plato del experimento de Rankin: vibración global y
+        // ráfaga aferente con cola de adaptación (~0.8 s, como el tren
+        // real de los mecanorreceptores del cuerpo).
+        this.stimuli.push(mk(0.8))
+        break
+      case 'shadow': {
+        // Sombra que crece (looming): disco oscuro expandiéndose 1.2 s.
+        this.stimuli.push(mk(1.2))
+        break
+      }
+      case 'flash':
+        this.stimuli.push(mk(0.2))
+        break
+      case 'heat':
+        this.stimuli.push(mk(3))
+        this.stimTemp = 9
+        break
+      case 'foodDrop': {
+        this.stimuli.push(mk(0.6, 0.4))
+        this.addFoodAt('fruit', x, y)
+        break
+      }
+      case 'airPuff': {
+        // Chorro de aire: empuje radial real + ráfaga mecano.
+        this.stimuli.push(mk(0.25))
+        for (const c of this.creatures) {
+          const dx = c.x - x
+          const dy = c.y - y
+          const d = Math.hypot(dx, dy)
+          if (d < 150 && d > 1) {
+            const k = (1 - d / 150) * 46
+            c.x = clamp(c.x + (dx / d) * k, 12, this.width - 12)
+            c.y = clamp(c.y + (dy / d) * k, 12, this.height - 12)
+          }
+        }
+        break
+      }
+    }
+  }
+
+  /**
+   * Traduce los estímulos activos a corriente: el TAP excita directamente
+   * los mecanorreceptores del cuerpo (electrodo virtual — el circuito real
+   * del tap-withdrawal: ALM/AVM/PLM → AVA/PVC), la sombra y el flash van a
+   * los fotorreceptores por el canal de luz, y el chorro de aire a los
+   * mecanosensores de la mosca.
+   */
+  stimToInputs(c: Creature, inp: number[]): void {
+    if (!this.stimuli.length) return
+    let lightMax = 0
+    let tapAmp = 0
+    let puffAmp = 0
+    for (const s of this.stimuli) {
+      switch (s.kind) {
+        case 'tap': {
+          // Golpe al plato: vibración mecánica global del cuerpo. La ráfaga
+          // aferente DECAE (adaptación del mecanorreceptor real).
+          const decayAmp = s.amp * Math.max(0.25, 1 - s.t / s.dur)
+          tapAmp = Math.max(tapAmp, decayAmp)
+          break
+        }
+        case 'shadow': {
+          // Disco que crece sobre (x,y): la criatura lo "ve" cuando el radio
+          // creciente la alcanza; la intensidad sube con la aproximación.
+          const frac = s.t / s.dur
+          const r = 30 + 170 * frac
+          const d = Math.hypot(c.x - s.x, c.y - s.y)
+          if (d < r) lightMax = Math.max(lightMax, 0.35 + 0.65 * frac)
+          break
+        }
+        case 'flash':
+          lightMax = Math.max(lightMax, 1)
+          break
+        case 'airPuff': {
+          const d = Math.hypot(c.x - s.x, c.y - s.y)
+          if (d < 140) {
+            const amp = (1 - d / 140) * (1 - s.t / s.dur)
+            puffAmp = Math.max(puffAmp, amp)
+          }
+          break
+        }
+        default:
+          break
+      }
+    }
+    // El estímulo domina sobre la señal ambiental de fondo.
+    if (lightMax > 0) inp[3] = Math.max(inp[3] ?? 0, lightMax)
+    // La ANN de control no tiene electrodo: recibe el tap por canal.
+    if (tapAmp > 0 && c.brain.kind === 'ann') {
+      inp[12] = Math.max(inp[12] ?? 0, tapAmp)
+      inp[13] = Math.max(inp[13] ?? 0, tapAmp * 0.8)
+    }
+    // TAP y CHORRO: electrodo directo sobre el circuito mecanorreceptor real
+    // de la especie (gusano: ALM/AVM/PLM — Wicks & Rankin 1997; mosca: MEC).
+    // Amplitud de tren: los mecanorreceptores del animal responden al golpe
+    // con ráfagas de picos, no con disparos aislados.
+    const mech = tapAmp * 1.25 + puffAmp * 0.6
+    if (mech > 0 && c.brain.stimulate) {
+      c.brain.stimulate(this.mechIds(c.species), mech)
+    }
+  }
+
+  /** Índices del circuito mecanorreceptor por especie (cacheado). */
+  private mechCache: Partial<Record<Species, number[]>> = {}
+  private mechIds(species: Species): number[] {
+    if (!this.mechCache[species]) {
+      this.mechCache[species] =
+        species === 'worm'
+          ? knockoutIndices(species, 'alm')
+              .concat(knockoutIndices(species, 'plm'))
+          : knockoutIndices(species, 'mec')
+    }
+    return this.mechCache[species]!
+  }
+
+  /** Activa/desactiva un knockout por grupo (ablación virtual). */
+  setKnockout(species: Species, key: string, on: boolean): void {
+    const cur =
+      this.knockouts[species] ??
+      (this.knockouts[species] = new Set<number>())
+    const ids = knockoutIndices(species, key)
+    if (on) ids.forEach((i) => cur.add(i))
+    else ids.forEach((i) => cur.delete(i))
+    const active = cur.size ? cur : null
+    for (const c of this.creatures) {
+      if (c.species === species && c.brain.setSilenced) {
+        c.brain.setSilenced(active)
+      }
+    }
+  }
+
+  /** Lista de grupos de knockout encendidos (para la UI). */
+  knockoutOn(species: Species, key: string): boolean {
+    const cur = this.knockouts[species]
+    if (!cur) return false
+    const ids = knockoutIndices(species, key)
+    return ids.length > 0 && ids.every((i) => cur.has(i))
+  }
+
+  /** Aplica el knockout vigente a un recién nacido (llamado al eclosionar). */
+  private applyKnockouts(c: Creature): void {
+    const cur = this.knockouts[c.species]
+    if (cur && cur.size && c.brain.setSilenced) c.brain.setSilenced(cur)
+  }
+
+  // ——— Arena / Retos: editor y cronómetro ————————————————————————————
+
+  addFoodAt(kind: FoodKind, x: number, y: number): Food {
+    return this.addFood(new Food(kind, x, y))
+  }
+
+  arenaAddWall(w: Wall): void {
+    this.walls.push(w)
+  }
+
+  arenaUndoWall(): Wall | null {
+    return this.walls.pop() ?? null
+  }
+
+  arenaSetGoal(goal: ArenaGoal | null): void {
+    this.goal = goal
+  }
+
+  /** Limpia paredes, meta, comida y participantes (no el clima). */
+  arenaClear(): void {
+    this.walls = []
+    this.goal = null
+    this.foods = []
+    this.creatures = []
+    this.eggs = []
+    this.arenaResults = []
+    this.arenaRunning = false
+    this.runT = 0
+    this.selectedId = null
+  }
+
+  /**
+   * Suelta un organismo en la arena con la arquitectura cerebral elegida
+   * ('ann' = control experimental, 'elegans'/'drosophila' = conectoma real).
+   */
+  spawnAt(
+    species: Species,
+    kind: BrainKind,
+    x: number,
+    y: number,
+    genome?: Float32Array,
+  ): Creature {
+    const brain: IBrainAdapter =
+      kind === 'ann'
+        ? genome ? new Brain(genome) : new Brain()
+        : kind === 'elegans'
+          ? genome ? new ElegansBrain(genome) : new ElegansBrain()
+          : genome
+            ? new DrosophilaBrain(genome)
+            : new DrosophilaBrain()
+    const c = new Creature({
+      species,
+      x: clamp(x, 20, this.width - 20),
+      y: clamp(y, 20, this.height - 20),
+      brain,
+      energy: SPECIES_CONFIG[species].maxEnergy,
+    })
+    this.creatures.push(c)
+    this.applyKnockouts(c)
+    return c
+  }
+
+  /** Inicia el ensayo: cronómetro a cero y resultados limpios. */
+  arenaStart(): void {
+    this.arenaResults = []
+    this.runT = 0
+    this.arenaRunning = this.creatures.length > 0
+    for (const c of this.creatures) {
+      c.arenaDone = false
+      c.arenaOutcome = undefined
     }
   }
 
@@ -847,3 +1227,7 @@ export class World {
 }
 
 export { MASK }
+
+function r2(x: number): number {
+  return Math.round(x * 1000) / 1000
+}
