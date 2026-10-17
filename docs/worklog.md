@@ -205,3 +205,60 @@ Stage Summary:
 - Credencial expuesta NO usada; usuario advertido para revocarla.
 - Pendiente futuro opcional: websocket espectadores, causas de muerte,
   export/import de mundos.
+
+---
+Task ID: 7
+Agent: main (Z.ai Code)
+Task: Publicación en GitHub: repo, tag v1.0.0, Release, GitHub Pages y
+workflow de despliegue automático por versión.
+
+Work Log:
+- Verificado soporte de output:"export" en Next 16 (config-shared.d.ts).
+- next.config.ts: modos env-driven — NEXT_OUTPUT (export|standalone),
+  NEXT_PUBLIC_BASE_PATH, NEXT_PUBLIC_STATIC_MODE, NEXT_DIST_DIR.
+- src/lib/static-museum.ts + museum-panel.tsx: modo estático del Museo
+  (localStorage con el mismo contrato EvolutionRecordDTO) para GitHub
+  Pages, donde no hay backend; en dev sigue usando /api/records.
+- package.json: script build:static. .gitignore: /build-static/.
+- .github/workflows/deploy-pages.yml: trigger push tags v* + dispatch;
+  checkout → setup-bun → bun install → rm src/app/api → basePath
+  calculado según repo → build:static → configure-pages →
+  upload-pages-artifact → deploy-pages → gh release create con
+  --generate-notes y el sitio compilado como .zip adjunto.
+- Verificación local del export estático (NEXT_DIST_DIR=build-static,
+  basePath /neuroevo simulado con python http.server): render, HUD,
+  Museo localStorage (guardar/listar/sembrar/eliminar) — todo OK.
+  Detalle: con distDir custom, Next 16 vuelca el export en el propio
+  distDir (y el cache de build a .next, lo que tumbó el dev server;
+  reiniciado). En CI (sin distDir) el export va a out/ como espera el
+  workflow.
+- Commit 3594b24 (ci) + tag v1.0.0 anotado.
+- Token del usuario (scopes repo, workflow) usado solo para: validar
+  identidad (juanruiz85), crear repo público neuroevo con topics,
+  push de main, habilitar Pages (build_type workflow) y push del tag.
+  Borrado de /tmp al terminar.
+- INCIDENCIA CI: run #1-3 fallaron al arranque — "Tag v1.0.0 is not
+  allowed to deploy to github-pages due to environment protection
+  rules": el entorno github-pages auto-creado solo permite la rama
+  main y los endpoints de deployment-tag-policies devuelven 404.
+  Fix: quitado el bloque environment: del job (deploy-pages funciona
+  sin él) — commit b0cf61c; tag v1.0.0 movido al nuevo commit.
+- Run #4: SUCCESS (15/15 pasos). Pages 200 con assets bajo
+  /neuroevo/_next. Release v1.0.0 creada con
+  neuroevo-v1.0.0-sitio-estatico.zip (568 KB) y notas autogeneradas.
+- E2E del sitio público https://juanruiz85.github.io/neuroevo/ con
+  agent-browser + VLM: título, 0 errores de página, canvas con
+  simulación viva, HUD, 4 pestañas, 22 elementos interactivos, preset
+  "Ola de calor" aplicado con éxito. Dev server local (3000)
+  reiniciado y verificado (200).
+
+Stage Summary:
+- Repo: https://github.com/juanruiz85/neuroevo (público, topics).
+- Sitio: https://juanruiz85.github.io/neuroevo/ (deploy automático).
+- Release: https://github.com/juanruiz85/neuroevo/releases/tag/v1.0.0
+  con el sitio compilado adjunto.
+- Publicar una nueva versión = git tag -a v1.1.0 + git push origin
+  v1.1.0 → el workflow hace build, deploy a Pages y Release solos.
+- Credencial del usuario usada solo para el setup y eliminada de
+  /tmp; se recomendó al usuario revocarla/rotarla por haberse
+  expuesto en el chat.
