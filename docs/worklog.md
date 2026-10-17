@@ -262,3 +262,77 @@ Stage Summary:
 - Credencial del usuario usada solo para el setup y eliminada de
   /tmp; se recomendó al usuario revocarla/rotarla por haberse
   expuesto en el chat.
+
+---
+Task ID: 8
+Agent: main (Z.ai Code)
+Task: Fase 1 — migrar los gusanos al conectoma biológico real de
+C. elegans con motor LIF, dejando la arquitectura preparada para la
+Fase 2 (Drosophila).
+
+Work Log:
+- Descarga de datos: GitHub API con rate limit agotado → blobless
+  clone de openworm/CElegansNeuroML (git ls-tree sin API) →
+  herm_full_edgelist.csv (7.379 aristas) + CElegansNeuronTables.xls
+  (neurotransmisores, 86 sensoriales con función, uniones
+  neurona-músculo; parseado con xlrd).
+- Dataset compacto generado con python: 300 neuronas (excl. músculos
+  en minúscula; CANL/R sin sinapsis no figuran), 3.638 sinapsis
+  químicas + 1.093 gap (deduplicadas), clasificación derivada de los
+  datos (86 sensoriales / 50 motoras por unión muscular / 164
+  interneuronas), transmisores del xls + relleno curado del cordón
+  ventral (AS/DA/DB/VA/VB/VC=ACh; DD/VD=GABA) y faringe. 55 KB JSON
+  en src/lib/sim/data/.
+- adapter.ts: IBrainAdapter (patrón Strategy) + registro FACTORIES
+  (fly→ANN, worm→ElegansBrain); la Fase 2 solo toca FACTORIES.fly.
+- elegans.ts: grafo compartido CSR (peso = signo·log₂(1+contactos),
+  GABA negativo) + gap junctions; LIF por gusano (fuga τ, umbral,
+  refractario, inyección sensorial, disparo con entrega inmediata,
+  difusión + transmisión de picos por gaps). Mapeo sensorial: AFD ←
+  térmico con signo, ASE/AWC/AWA ← comida (asimetría L/R con signo
+  explícito), ASH/PHA/PHB ← veneno, PVD/ALM ← multitud, BAG ←
+  humedad, ADF ← hambre, tónico → AVB+RMD. Motores: VB/DB+AVB/PVC →
+  avanzar; asimetría dorso-ventral RMD/SM/SMB (×2.2 en reversa
+  VA/DA+AVA) → girar; VC+HSN (puesta real) → reproducir.
+- Sintonía empírica con scripts headless en bun (/tmp, no
+  commiteados): primera versión epiléptica (48% de disparo, estímulos
+  sin efecto) → pesos 0.085·log₂, vth 1.35, τ 7.5, refr 3; segunda
+  versión con cadena comando→motor muerta → añadir transmisión de
+  picos por gap (AVA/AVB → pools A/B); giro sesgado → dirección por
+  asimetría dorso-ventral con tónico equilibrado. Resultado final:
+  giro bidireccional, avance 0.5-0.8, 0 gusanos paralizados, G8 en
+  3 min, ~1.2 ms/tick con 60 conectomas.
+- Integración: creature.ts usa IBrainAdapter + createBrain; world.ts
+  (selectedView con brainKind + connectome, seedFromRecord
+  retrocompatible por kind/longitud, getElite con kind); types.ts
+  (CreatureView.brainKind/connectome, StoredBrain.kind); zod del POST
+  acepta kind opcional; nn.ts implementa la interfaz (moscas intactas).
+- UI: brain-view.tsx con dos vistas (ANN 12→8→3 intacta; anillo del
+  conectoma: 3 sectores por clase, brillo por potencial, destellos
+  blancos de pico, etiquetas AFD/ASE/AVA/VB/VC..., picos/tick,
+  salida 3 motores a la derecha). inspector-panel.tsx: badge
+  "C. elegans · conectoma real", descripción condicional y stats
+  Picos/Actividad media. Bug visual corregido: alfa base 0.16 hacía
+  invisibles las neuronas sub-umbral → 0.45 + pot·0.55.
+- Docs: docs/CONNECTOMA-C-ELEGANS.md (dataset, LIF, mapeos,
+  genoma de 20 genes, simplificaciones honestas) y
+  docs/FASE-2-DROSOPHILA.md (Janelia MaleCNS, FlyWire/neuPrint,
+  reducción neuprint-python → 10-30 MB, checklist). CHANGELOG 1.1.0,
+  README actualizado, package.json 1.1.0.
+- Verificación: lint 0 errores; E2E con agent-browser + VLM
+  (inspector de gusano con anillo y 3 sectores confirmado por
+  análisis de píxeles y VLM neutral; moscas con ANN intacta — 912 px
+  de aristas verdes/132 rojas; 61 FPS; Museo guarda élite gusana con
+  kind=elegans y 20 pesos vía API; registro de prueba eliminado).
+- Commit 628cda1 (16 archivos, +1.129) tras corregir ruido de
+  mode changes del entorno (chmod 644 + amend + core.fileMode) y
+  tag v1.1.0 anotado (local; sin push por carecer de credenciales).
+
+Stage Summary:
+- Los gusanos piensan con el conectoma real de C. elegans (OpenWorm)
+  bajo LIF a 30 Hz; el GA evoluciona su neuromodulación (20 genes).
+- Arquitectura Strategy (IBrainAdapter) lista para Drosophila (Fase 2
+  documentada con fuentes y pipeline de reducción).
+- Museo retrocompatible (kind); moscas ANN como control experimental.
+- v1.1.0 taggeada localmente; publicar requiere push del usuario
+  (token anterior revocado) → tag → workflow despliega Pages+Release.
