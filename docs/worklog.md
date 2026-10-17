@@ -608,3 +608,40 @@ Stage Summary:
   gusanos nacen exclusivamente de huevos incubados en el mundo.
 - v1.2.0 lista para publicar: falta push (sin token disponible; tag
   v1.2.0 + push → Pages + Release automáticos).
+
+---
+Task ID: 12
+Agent: main (Z.ai Code)
+Task: Publicar v1.2.0 en GitHub (push de main + tag → Pages + Release)
+con el nuevo token aportado por el usuario, y E2E del sitio en vivo.
+
+Work Log:
+- Token nuevo verificado contra la API (login juanruiz85), guardado en
+  /tmp/ghtoken (permisos 600, uso único) y usado solo en las URLs de push
+  (el remote origin queda limpio, sin credenciales persistentes).
+- Push de main: cdb4238..aadb08d (biología v1.2, 22 archivos, +2735/−168).
+- Tag anotado v1.2.0 creado con resumen completo de la biología del gusano
+  y pusheado → workflow "Deploy a GitHub Pages" (run 39038240527)
+  completado con SUCCESS en ~2 min.
+- Release v1.2.0 publicada con asset neuroevo-v1.2.0-sitio-estatico.zip.
+- E2E del sitio en vivo (https://juanruiz85.github.io/neuroevo/):
+  - 0 page errors / 0 console errors en toda la sesión.
+  - HUD: Día 5 · G8 · 63 gusanos · 5 huevos al pausar; tras reanudar ×8
+    quedó en 9 huevos → la reproducción neural por puesta opera en
+    producción (los nuevos gusanos nacen de esos huevos).
+  - Ficha del gusano (botón "Seguir un gusano"): fase "Adulto · de ~300s
+    de vida", stats HUEVOS PUESTOS/MADUROS/ESPERMA 140/FEROMONA 60%, y
+    "SENTIDOS EN VIVO" con los 17 canales y sus neuronas reales (ADF+HSN,
+    DVA+SMDD, AWC, AWA, ASE, PHA, PHB, ASH, AFD, BAG, ASH+FLP+OLQ, PLM,
+    PVD+ALM, ADL...).
+  - Vista "Circuito vivo" verificada por VLM ×2: riel de sensores,
+    columnas ámbar/gris/esmeralda, chips VB/DB · VA/DA · RMD/SM · VC/HSN,
+    salidas Girar/Avanzar/Reproducir, aristas con partículas verdes/rojas.
+  - Linaje observado: "Gusano #607, hijo de G1" → genealogía por huevos.
+- Token borrado de /tmp tras el uso; se recomienda al usuario revocarlo
+  en GitHub (politica de seguridad del proyecto).
+
+Stage Summary:
+- v1.2.0 EN LÍNEA: main aadb08d + tag v1.2.0 → Pages y Release
+  automáticos; E2E en producción sin errores y con la biología nueva
+  (17 sentidos, ciclo de vida, huevos, Circuito vivo) funcionando.
