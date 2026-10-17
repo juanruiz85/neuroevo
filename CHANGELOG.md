@@ -5,6 +5,56 @@ Todos los cambios notables de este proyecto se documentan en este archivo.
 El formato está basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/)
 y el proyecto se adhiere al [Versionado Semántico](https://semver.org/lang/es/).
 
+## [1.1.0] — 2026-10-17
+
+Los gusanos dejan atrás las redes neuronales aleatorias: ahora simulan el
+**conectoma biológico real de *C. elegans***. (Fase 1 del plan de
+cerebros biológicos; la Fase 2 — *Drosophila* — queda documentada y
+preparada con el patrón Strategy.)
+
+### Añadido
+
+**Conectoma real de C. elegans para los gusanos**
+- Dataset compacto (55 KB, `src/lib/sim/data/c_elegans_connectome.json`)
+  generado desde OpenWorm: **300 de las 302 neuronas** del hermafrodita
+  (incluidas las 20 faríngeas; CANL/R no tienen sinapsis), **3.638 sinapsis
+  químicas + 1.093 uniones en gap** (≈25.000 contactos), con clasificación
+  (86 sensoriales / 164 interneuronas / 50 motoras) y neurotransmisores.
+- Motor **LIF** (integración y disparo con fugas) por gusano: potenciales
+  de membrana, umbral, refractario, sinapsis químicas con signo según el
+  transmisor presináptico (GABA inhibitorio) y uniones en gap con difusión
+  + transmisión de picos (así comandan AVA/AVB a los pools motores A/B).
+- Mapeo sensorial documentado (AFD ← temperatura — el termosensor real,
+  ASE ← comida, ASH ← veneno, PHA/PHB ← quimiorrecepción aversiva, PVD/ALM
+  ← multitud, BAG ← humedad…) y motor por pools reales (VB/DB+AVB →
+  avanzar; asimetría dorso-ventral RMD/SM/SMB → girar, amplificada en las
+  reversas VA/DA+AVA; VC+HSN — el circuito real de puesta — → reproducir).
+- **GA sobre neuromodulación**: 20 genes heredables (ganancias sensoriales,
+  escalas de transmisión ACh/Glu/GABA/monoaminas, τ de fuga, umbral,
+  refractario, impulso tónico). La estructura sináptica es intocable
+  — es biología; la selección natural ajusta la química, como en el animal.
+- Frío extremo = coeficiente **Q10**: la entrega sináptica se debilita con
+  `voltage` (el nemátodo real se vuelve torpe y letárgico bajo 10 °C).
+
+**Arquitectura extensible (patrón Strategy)**
+- Interfaz `IBrainAdapter` + registro de fábricas: cambiar la mosca ANN por
+  el futuro conectoma de *Drosophila* (Fase 2) solo toca una línea del
+  registro. La ANN 12→8→3 de las moscas queda intacta como control
+  experimental.
+- Inspector neuronal con dos vistas: anillo del conectoma (300 neuronas en
+  tres sectores por clase — ámbar sensoriales, gris interneuronas, esmeralda
+  motoras — con destellos blancos por pico, etiquetas de AFD/ASE/AVA/VB…,
+  picos/tick y actividad media) para gusanos; red clásica 12→8→3 para moscas.
+- Museo de la Evolución retrocompatible: los cerebros serializados incluyen
+  `kind` ('ann' | 'elegans') y los registros antiguos de gusanos se siembran
+  como ANN clásica (API + zod actualizados).
+- Rendimiento: ~1.2 ms/tick para el mundo completo (≈60 gusanos con 300
+  neuronas cada uno + moscas) — 3-4 % del presupuesto de frame a 60 FPS.
+- Documentación: `docs/CONNECTOMA-C-ELEGANS.md` (mapeos, modelo LIF,
+  procedencia y simplificaciones honestas) y `docs/FASE-2-DROSOPHILA.md`
+  (fuentes Janelia MaleCNS/FlyWire/neuPrint, reducción offline prevista con
+  `neuprint-python` hacia un JSON de 10-30 MB, checklist de integración).
+
 ## [1.0.0] — 2026-10-17
 
 Primera versión pública completa.
@@ -85,4 +135,5 @@ Primera versión pública completa.
 - Evolución observada hasta la generación 17 en ~10 minutos de simulación
   (560 nacimientos / 579 muertes).
 
+[1.1.0]: https://github.com/juanruiz85/neuroevo/releases/tag/v1.1.0
 [1.0.0]: https://github.com/juanruiz85/neuroevo/releases/tag/v1.0.0

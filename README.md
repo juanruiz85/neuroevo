@@ -38,22 +38,30 @@ observar (y documentar) cómo evoluciona cada especie para adaptarse.
 
 ## ✨ Características
 
-- 🧠 **Redes neuronales reales**: 12 sensores → 8 neuronas → 3 motores por
-  criatura, con 131 pesos sinápticos que se heredan y mutan.
+- 🪱 **Cerebro biológico real**: los gusanos simulan el **conectoma de
+  *C. elegans*** — 300 neuronas y 4.731 sinapsis reales de OpenWorm bajo un
+  modelo LIF, con AFD sintiendo la temperatura, ASH el veneno y el circuito
+  VC+HSN decidiendo la puesta.
+- 🪰 **Redes neuronales evolutivas**: las moscas usan una ANN 12 → 8 → 3 con
+  131 pesos sinápticos que se heredan y mutan (control experimental de la
+  Fase 2: el conectoma de *Drosophila*).
 - 🪰🪱 **Dos especies con nichos distintos**: las moscas ven de día y comen
   fruta; los gusanos "huelen" con la humedad y comen detritos. Ambos compiten
   por el azúcar.
 - 🌦️ **Clima dinámico**: el frío reduce el voltaje de sus neuronas (se
-  adormecen), el calor quema energía, la lluvia genera comida para los
-  gusanos y la noche ciega a las moscas.
-- 🧬 **Evolución medible**: generaciones, linajes, rasgos heredables
-  (velocidad máxima y rango sensorial) y gráficas de población y genética.
+  adormecen — Q10 en los gusanos), el calor quema energía, la lluvia genera
+  comida para los gusanos y la noche ciega a las moscas.
+- 🧬 **Evolución medible**: en los gusanos la selección natural ajusta la
+  neuromodulación del conectoma (20 genes: ganancias sensoriales, escalas
+  ACh/GABA/Glu, τ, umbral…); en las moscas, los 131 pesos de su ANN.
+  Generaciones, linajes y gráficas de población y genética.
 - 🔬 **Inspector neuronal**: haz clic en cualquier criatura y observa su
-  cerebro iluminándose en tiempo real, sensor por sensor.
+  cerebro iluminándose en tiempo real — anillo del conectoma (picos LIF) en
+  gusanos, red 12→8→3 en moscas.
 - 🏛️ **Museo de la Evolución** (con base de datos): guarda las élites
   evolucionadas y siémbralas en simulaciones futuras.
 - ⚡ **Rendimiento**: motor desacoplado de React a 30 ticks/s (hasta ×8 de
-  velocidad) con grilla espacial para cientos de criaturas.
+  velocidad) — ~1.2 ms/tick incluso con 60 conectomas de 300 neuronas.
 
 ## 🖥️ La interfaz
 
@@ -218,6 +226,8 @@ Cómo funciona:
 | Documento | Contenido |
 |---|---|
 | [docs/ARQUITECTURA.md](docs/ARQUITECTURA.md) | Especificación técnica: red neuronal, modelo de energía, clima, grilla espacial, renderer, integración con React, modelo de datos. |
+| [docs/CONNECTOMA-C-ELEGANS.md](docs/CONNECTOMA-C-ELEGANS.md) | Fase 1: conectoma real de *C. elegans* — dataset OpenWorm, modelo LIF, mapeos sensoriales/motores, genoma de neuromodulación. |
+| [docs/FASE-2-DROSOPHILA.md](docs/FASE-2-DROSOPHILA.md) | Fase 2 (hoja de ruta): conectoma de *Drosophila* — Janelia MaleCNS, FlyWire/neuPrint, reducción offline con neuprint-python. |
 | [docs/DESARROLLO.md](docs/DESARROLLO.md) | Cómo se creó el proyecto: proceso multiagente, decisiones de diseño y verificación E2E. |
 | [docs/worklog.md](docs/worklog.md) | Bitácora de trabajo cruda, tarea por tarea. |
 | [CHANGELOG.md](CHANGELOG.md) | Historial de versiones. |

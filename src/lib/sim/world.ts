@@ -2,6 +2,7 @@
 
 import { Creature } from './creature'
 import { Brain } from './nn'
+import { ElegansBrain, ELEGANS_GENES } from './connectome/elegans'
 import { Rng } from './rng'
 import {
   DEFAULT_ENV,
@@ -475,6 +476,7 @@ export class World {
   private selectedView(): CreatureView | null {
     const c = this.getSelected()
     if (!c) return null
+    const con = c.brain.connectomeView?.() ?? null
     return {
       id: c.id,
       species: c.species,
@@ -498,6 +500,8 @@ export class World {
       hidden: Array.from(c.brain.hA),
       outputs: Array.from(c.brain.oA),
       weights: Array.from(c.brain.w),
+      brainKind: c.brain.kind,
+      ...(con ? { connectome: { v: con.v as number[], s: con.s as number[] } } : {}),
     }
   }
 
@@ -548,8 +552,16 @@ export class World {
   seedFromRecord(rec: EliteRecord): number {
     const n = 8
     const cfg = SPECIES_CONFIG[rec.species]
+    // Reconstruye la arquitectura correcta: los gusanos nuevos usan el
+    // conectoma (genoma de 20 genes); los registros antiguos de gusanos
+    // (131 pesos ANN) se siembran tal cual eran: ANN clásica.
+    const isElegans =
+      rec.brain.kind === 'elegans' ||
+      (rec.species === 'worm' && rec.brain.weights.length === ELEGANS_GENES)
     for (let i = 0; i < n; i++) {
-      const brain = new Brain(new Float32Array(rec.brain.weights))
+      const brain = isElegans
+        ? new ElegansBrain(new Float32Array(rec.brain.weights))
+        : new Brain(new Float32Array(rec.brain.weights))
       brain.mutate(this.rng, 0.05, 0.2)
       this.creatures.push(
         new Creature({
@@ -595,6 +607,7 @@ export class World {
           maxSpeed: Math.round(c.maxSpeed),
           vision: Math.round(c.vision),
         },
+        kind: c.brain.kind,
       },
       env: {
         ...this.env,

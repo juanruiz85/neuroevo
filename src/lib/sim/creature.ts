@@ -1,6 +1,8 @@
-// Criatura: sentidos -> red neuronal -> movimiento, metabolismo y reproducción.
+// Criatura: sentidos -> cerebro (adaptador: ANN o conectoma biológico)
+// -> movimiento, metabolismo y reproducción.
 
-import { Brain, NN_IN } from './nn'
+import { NN_IN } from './nn'
+import { createBrain, type IBrainAdapter } from './connectome/adapter'
 import { SPECIES_CONFIG, clamp, type Species } from './types'
 import type { World } from './world'
 
@@ -10,7 +12,7 @@ export interface CreatureOpts {
   species: Species
   x: number
   y: number
-  brain?: Brain
+  brain?: IBrainAdapter
   generation?: number
   parentGen?: number
   maxSpeed?: number
@@ -30,7 +32,7 @@ export class Creature {
   age = 0
   generation: number
   parentGen: number
-  readonly brain: Brain
+  readonly brain: IBrainAdapter
   /** Velocidad máxima heredada (px/s), sujeta a evolución. */
   maxSpeed: number
   /** Rango sensorial base heredado (px), sujeto a evolución. */
@@ -54,7 +56,8 @@ export class Creature {
     this.x = opts.x
     this.y = opts.y
     this.heading = Math.random() * Math.PI * 2
-    this.brain = opts.brain ?? new Brain()
+    // Gusanos → conectoma real de C. elegans (LIF); moscas → ANN evolutiva.
+    this.brain = opts.brain ?? createBrain(opts.species)
     this.generation = opts.generation ?? 0
     this.parentGen = opts.parentGen ?? -1
     this.maxSpeed =

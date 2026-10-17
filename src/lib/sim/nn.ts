@@ -1,8 +1,11 @@
 // Red neuronal compacta para las criaturas de NeuroEvo.
 // Topología fija: 12 sensores -> 8 neuronas ocultas (tanh) -> 3 motores.
 // Los pesos son el "genoma" que se hereda y muta entre generaciones.
+// Implementa IBrainAdapter: la alternativa biológica es ElegansBrain
+// (conectoma real de C. elegans) — ver ./connectome/adapter.ts.
 
 import type { Rng } from './rng'
+import type { IBrainAdapter } from './connectome/adapter'
 
 export const NN_IN = 12
 export const NN_H = 8
@@ -32,7 +35,8 @@ const B1 = NN_IN * NN_H
 const W2 = B1 + NN_H
 const B2 = W2 + NN_H * NN_OUT
 
-export class Brain {
+export class Brain implements IBrainAdapter {
+  readonly kind = 'ann' as const
   readonly w: Float32Array
   /** Activaciones de la última propagación (para el inspector visual). */
   readonly inA = new Float32Array(NN_IN)

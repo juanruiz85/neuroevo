@@ -1,5 +1,7 @@
 // Tipos y constantes compartidas del ecosistema.
 
+import type { BrainKind } from './connectome/adapter'
+
 export type Species = 'fly' | 'worm'
 export type FoodKind = 'fruit' | 'detritus' | 'sugar' | 'poison'
 
@@ -134,6 +136,10 @@ export interface CreatureView {
   hidden: number[]
   outputs: number[]
   weights: number[]
+  /** Arquitectura cerebral: 'ann' (red evolutiva) o 'elegans' (conectoma). */
+  brainKind: BrainKind
+  /** Actividad del conectoma (solo cerebros biológicos). */
+  connectome?: { v: number[]; s: number[] }
 }
 
 export interface WorldView {
@@ -164,6 +170,8 @@ export interface WorldView {
 export interface StoredBrain {
   weights: number[]
   traits: { maxSpeed: number; vision: number }
+  /** Arquitectura ('ann' | 'elegans'); ausente en registros antiguos. */
+  kind?: BrainKind
 }
 
 export interface EliteRecord {

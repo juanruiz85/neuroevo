@@ -39,6 +39,9 @@ const brainSchema = z.object({
     maxSpeed: z.number().positive(),
     vision: z.number().positive(),
   }),
+  // Arquitectura del cerebro serializado: 'ann' (red 12→8→3 clásica) o
+  // 'elegans' (genoma de neuromodulación del conectoma de C. elegans).
+  kind: z.enum(['ann', 'elegans']).optional(),
 })
 
 const createRecordSchema = z.object({

@@ -4,9 +4,11 @@
 
 import {
   Baby,
+  Brain,
   Bug,
   Dna,
   Gauge,
+  Network,
   Radar,
   Thermometer,
   UtensilsCrossed,
@@ -26,10 +28,11 @@ import {
 } from '@/components/ui/card'
 import { BrainView } from '@/components/sim/brain-view'
 import {
+  ELEGANS_INFO,
   SPECIES_CONFIG,
   type CreatureView,
   type Species,
-} from '@/lib/sim/types'
+} from '@/lib/sim'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -72,6 +75,15 @@ export function InspectorPanel({ selected, onFollow, onRelease }: Props) {
   const cfg = SPECIES_CONFIG[c.species]
   const energyPct = Math.max(0, Math.min(100, (c.energy / c.maxEnergy) * 100))
   const agePct = Math.min(100, (c.age / c.maxAge) * 100)
+  const isElegans = c.brainKind === 'elegans' && c.connectome
+  const spikes = c.connectome?.s.filter((x) => x === 1).length ?? 0
+  const activity = c.connectome
+    ? Math.round(
+        (c.connectome.v.reduce((a, x) => a + Math.min(x, 1.4), 0) /
+          (c.connectome.v.length * 1.4)) *
+          100,
+      )
+    : 0
 
   return (
     <div className="space-y-4">
@@ -136,6 +148,12 @@ export function InspectorPanel({ selected, onFollow, onRelease }: Props) {
             <Stat icon={UtensilsCrossed} label="Comidas" value={`${c.foodEaten}`} />
             <Stat icon={Baby} label="Hijos" value={`${c.children}`} />
             <Stat icon={Zap} label="Aptitud" value={`${c.fitness}`} />
+            {isElegans && (
+              <>
+                <Stat icon={Brain} label="Picos / tick" value={`${spikes}/${ELEGANS_INFO.neurons}`} sub="modelo LIF" />
+                <Stat icon={Network} label="Actividad media" value={`${activity}%`} sub={`${ELEGANS_INFO.synapses} sinapsis reales`} />
+              </>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -144,11 +162,17 @@ export function InspectorPanel({ selected, onFollow, onRelease }: Props) {
         <CardHeader className="pb-2">
           <CardTitle className="flex items-center gap-2 text-sm">
             <Dna className="size-4 text-emerald-500" />
-            Cerebro en vivo
+            {isElegans ? 'Cerebro biológico en vivo' : 'Cerebro en vivo'}
+            {isElegans && (
+              <Badge variant="outline" className="font-mono text-[9px] text-amber-500">
+                C. elegans · conectoma real
+              </Badge>
+            )}
           </CardTitle>
           <CardDescription className="text-[11px]">
-            12 sensores → 8 neuronas → 3 motores. Verde = excitación, rojo =
-            inhibición; el grosor es la fuerza sináptica.
+            {isElegans
+              ? `Conectoma real de C. elegans: ${ELEGANS_INFO.neurons} neuronas y ${ELEGANS_INFO.synapses.toLocaleString('es')} sinapsis bajo un modelo LIF. Ámbar = sensoriales, gris = interneuronas, esmeralda = motoras; el destello blanco es un pico de disparo.`
+              : '12 sensores → 8 neuronas → 3 motores. Verde = excitación, rojo = inhibición; el grosor es la fuerza sináptica.'}
           </CardDescription>
         </CardHeader>
         <CardContent>
