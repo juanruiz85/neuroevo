@@ -1,0 +1,49 @@
+# ── Dependencias ──────────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.*
+
+# ── Next.js ───────────────────────────────────────────────────
+/.next/
+/out/
+/build
+next-env.d.ts
+*.tsbuildinfo
+
+# ── Entorno y secretos ────────────────────────────────────────
+.env
+.env*.local
+
+# ── Base de datos local (regenerable con `bun run db:push`) ───
+db/*.db
+db/*.db-journal
+
+# ── Logs ──────────────────────────────────────────────────────
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ── Sistema / editores ────────────────────────────────────────
+.DS_Store
+*.pem
+.vscode/
+.idea/
+Thumbs.db
+
+# ── Artefactos locales del entorno de desarrollo (no forman
+#    parte de la aplicación publicada) ─────────────────────────
+/worklog.md
+/.zscripts/
+/examples/
+/mini-services/
+/tests/
+/download/
+/upload/
+/skills/
+/Caddyfile
+/.claude
+/.z-ai-config
+prompt
+agent-ctx/
