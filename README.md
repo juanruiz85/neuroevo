@@ -93,6 +93,20 @@ observar (y documentar) cómo evoluciona cada especie para adaptarse.
   meta, fruta, veneno), suelta gusanos o moscas con conectoma real o ANN de
   control, cronómetro de ensayo, desenlaces con causa y **récords
   persistentes**.
+- 🧊 **Modo 3D — cuerpo y cerebro en vivo (v1.4.0)**: terrario 3D con la
+  **mosca voxelar de fly-brain-minecraft** (proporciones y paleta originales
+  del mod de Minecraft) y el **gusano con sus 302 neuronas en posición
+  somática real dentro del cuerpo** (WormBase Virtual Worm). El holograma
+  flotante muestra el cerebro disparando en vivo: en la mosca, la **nube del
+  CNS adulto masculino completo** (141.781 somas reales, Berg 2026 → 15.001
+  vóxeles, CC BY 4.0) con la actividad de los 29 grupos larvarios proyectada
+  sobre sus familias adultas homólogas; en el gusano, los 300 somas + las
+  **4.731 sinapsis** destellando. Coloca comida buena y **cebos amargos**
+  (quinina) con clic, dispara la **silueta de depredador** (looming → escape
+  por fibra gigante) y observa el **aprendizaje por valor**: la recompensa
+  refuerza la atracción y el castigo reescribe la valencia del olor
+  (NSM/serotonina · RIM/tiramina · DAN→MBON) — con barras en vivo y
+  extinción lenta. Banco de 28 pruebas: docs/MODO-3D.md.
 - 💾 **Cerebros portátiles**: exporta cualquier cerebro (inspector o Museo)
   como `.neuroevo.json` — arquitectura + genoma + rasgos — e impórtalo para
   sembrar 8 individuos en cualquier simulación.
@@ -103,10 +117,12 @@ observar (y documentar) cómo evoluciona cada especie para adaptarse.
   conectoma de 300 neuronas + ~15 moscas con el cerebro de 2.956 (banco de
   33 pruebas: docs/PRUEBAS-FASE-2.md).
 
-## 🖥️ La interfaz — tres modos
+## 🖥️ La interfaz — cuatro modos
 
 | | |
 |---|---|
+| ![Modo 3D · mosca](docs/screenshots/doc-3d-mosca.png) | ![Modo 3D · gusano](docs/screenshots/doc-3d-gusano.png) |
+| **3D · mosca**: mosca voxelar (fly-brain-minecraft) bajo la nube real del CNS adulto (141.781 somas, Berg 2026) con la actividad larvaria proyectada | **3D · gusano**: cuerpo ondulante con sus 302 neuronas reales dentro + holograma del sistema nervioso completo (4.731 sinapsis en vivo) |
 | ![Circuito vivo del conectoma](docs/screenshots/circuito-vivo.png) | ![Cerebro de Drosophila](docs/screenshots/cerebro-drosophila.png) |
 | **Inspector · Circuito vivo** (gusano): sentidos → comando → pools con las sinapsis reales animadas | **Inspector · Anillo Drosophila** (mosca): las 2.956 neuronas del cerebro larvario en 3 sectores, en vivo (41.977 sinapsis · Winding 2023) |
 | ![Laboratorio](docs/screenshots/laboratorio-rankin.png) | ![Retos](docs/screenshots/retos-arena.png) |
@@ -119,7 +135,7 @@ observar (y documentar) cómo evoluciona cada especie para adaptarse.
 Cada criatura siente y decide **30 veces por segundo**. Desde v1.1.0 conviven
 arquitecturas cerebrales intercambiables (patrón Strategy); desde v1.2.0 los
 gusanos viven su biología completa, y desde **v1.3.0 las dos especies usan
-conectomas reales** y hay tres modos de experimentación.
+conectomas reales** y hay cuatro modos de experimentación.
 
 ### 🪱 El gusano: conectoma real de *C. elegans* (Fase 1 + vida real)
 
@@ -368,6 +384,7 @@ Cómo funciona:
 | [docs/CONNECTOMA-C-ELEGANS.md](docs/CONNECTOMA-C-ELEGANS.md) | Fase 1: conectoma real de *C. elegans* — dataset OpenWorm, modelo LIF, mapeos sensoriales/motores, genoma de neuromodulación. |
 | [docs/SENSORES-CICLO-REPRODUCCION.md](docs/SENSORES-CICLO-REPRODUCCION.md) | v1.2: los 17 sentidos del gusano, ciclo de vida (huevo→L1→…→adulto, dauer) y reproducción real por circuito HSN+VC. |
 | [docs/FASE-2-DROSOPHILA.md](docs/FASE-2-DROSOPHILA.md) | Fase 2 (hoja de ruta): conectoma de *Drosophila* — Janelia MaleCNS, FlyWire/neuPrint, reducción offline con neuprint-python. |
+| [docs/MODO-3D.md](docs/MODO-3D.md) | v1.4: modo 3D — datos anatómicos (WormBase Virtual Worm · male-cns v1.0), anclajes larvario→adulto, aprendizaje por valor, banco 28/28. |
 | [docs/DESARROLLO.md](docs/DESARROLLO.md) | Cómo se creó el proyecto: proceso multiagente, decisiones de diseño y verificación E2E. |
 | [docs/worklog.md](docs/worklog.md) | Bitácora de trabajo cruda, tarea por tarea. |
 | [CHANGELOG.md](CHANGELOG.md) | Historial de versiones. |

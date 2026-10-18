@@ -1,5 +1,51 @@
 # Changelog
 
+## 1.4.0 — Modo 3D: cuerpo y cerebro en vivo
+
+### 🧊 Terrario 3D con anatomía real (nueva pestaña «3D», tras Laboratorio)
+- **Gusano**: cuerpo ondulante (los 8 segmentos reales del motor) con las
+  **302 neuronas en posición somática real** (µm) dentro del cuerpo,
+  coloreadas por su voltaje LIF tick a tick. Anatomía: WormBase Virtual
+  Worm (dominio público) vía OpenWorm c302 (MIT).
+- **Mosca**: cuerpo voxelar estilo Minecraft con las proporciones y la
+  paleta de `FlyModel.java` de **fly-brain-minecraft** (MIT).
+- **Holograma cerebral en vivo** flotando sobre el plato: en la mosca, la
+  **nube voxelar del CNS adulto masculino completo** (neuPrint
+  `male-cns:v1.0`, Berg et al., Cell 2026 — 141.781 somas reales → 15.001
+  celdas, datos CC BY 4.0) coloreada por región como el build de bloques,
+  con la actividad de los **29 grupos larvarios** (Winding 2023) proyectada
+  sobre sus familias adultas homólogas (ORN→lóbulo antenal, KC→cuerpo
+  fungiforme…, 29 anclajes documentados); en el gusano, los 300 somas con
+  las **4.731 sinapsis** y las presinápticas activas destellando, con 8
+  neuronas célebres etiquetadas (AVA, ASE, AFD…).
+- **Interacción con clic**: soltar sujeto (gusano N2 / mosca forrajera),
+  colocar azúcar, fruta, **cebo amargo** o disparar **silueta de
+  depredador** (looming), golpe y chorro de aire sobre el plato 3D.
+
+### 🍽️ Aprendizaje alimentario por valor
+- Nuevo `FoodKind 'bitter'`: cebos con quinina/denatonio que **huelen a
+  comida** pero castigan al probarlos (no letales, persistentes).
+- **Memoria por valor** por criatura: recompensa (comer bien) y castigo
+  (probar amargo) con referencia real (NSM/serotonina · RIM/tiramina ·
+  DAN→MBON). La aversión aprendida **reescribe la valencia del olor**:
+  apaga la vía olfativa del cebo y enciende la nociceptiva; extinción lenta.
+- Daño decreciente con la aversión (retracción de probóscide) + salto de
+  rechazo: el cebo solo no puede matar.
+- Panel con barras de preferencia/aversión y contadores en vivo.
+
+### 🐛 Correcciones
+- **Puesta fantasma** (preexistente): las moscas pagaban el coste
+  energético de la puesta aunque `layEgg` abortara en lab/arena/3D → el
+  coste se cobra solo si el huevo existe.
+- Terrario rico (44 ítems): la mosca localiza comida en sus vuelos (su
+  lóbulo antenal no da señal de giro fiable — como en el mod de Minecraft
+  original), el gusano quimiotaxea.
+
+### ✅ Pruebas
+- **Banco 3D: 28/28 ✓** (datos anatómicos, aprendizaje, cebo no letal,
+  escape por silueta con knockout visual, modo/APIs) — docs/MODO-3D.md.
+- Regresión Fase 2: **33/33 ✓** (2,96 ms/tick).
+
 ## 1.3.0 — Fase 2: Drosophila real, Laboratorio y Retos
 
 ### 🧠 Moscas con conectoma real de Drosophila (Winding et al. 2023, Science)

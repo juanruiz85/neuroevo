@@ -364,15 +364,20 @@ invierten con `screenToWorld`). Capas, en orden:
     positivo / rojo negativo), aristas por peso×activación y un anillo dorado
     cuando el impulso reproductivo supera 0.55.
 
-## 9bis. Tres modos de simulación (v1.3.0)
+## 9bis. Cuatro modos de simulación (v1.3.0 + modo 3D en v1.4.0)
 
-El mismo motor `World` con tres configuraciones (`SimMode`):
+El mismo motor `World` con cuatro configuraciones (`SimMode`):
 
 - **Ecosistema**: población inicial, clima, reproducción y evolución.
 - **Arena/Retos** (`walls`, `goal`, cronómetro): paredes con colisión
   círculo-segmento y rebote (activa el reflejo de tacto real), meta,
   desenlaces con causa y récords en localStorage. Sin spawns ni
   reproducción (protocolo limpio).
+- **3D** (`neuro3d`, v1.4.0): terrario de observación — plato rico a 20 °C
+  con cuerpos 3D anatómicos y hologramas cerebrales en vivo (react-three-
+  fiber; ver docs/MODO-3D.md). Colocación por clic de comida, cebos amargos
+  y silueta de depredador; **aprendizaje alimentario por valor** en el
+  motor (`learnGood`/`learnBad` por criatura). Sin reproducción.
 - **Laboratorio** (plato de agar 20 °C): estímulos programables
   (`stimulate()`), el **tap** como electrodo virtual sobre el circuito
   mecanorreceptor real de cada especie, knockouts por clase

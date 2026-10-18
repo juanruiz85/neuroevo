@@ -1170,3 +1170,89 @@ Stage Summary:
 - CRÉDITO/LICENCIA sugerido en la UI: "Soma positions: WormBase Virtual Worm
   (C. Grove & P. Sternberg, Caltech, public domain), via OpenWorm c302 (MIT)".
   Paper del framework: Gleeson et al. 2018, doi:10.1098/rstb.2017.0379.
+
+---
+Task ID: 19
+Agent: main (Z.ai Code)
+Task: Modo 3D «cuerpo y cerebro en vivo» — datos anatómicos reales,
+motor (cebo amargo + aprendizaje por valor + modo neuro3d), UI 3D completa
+(terrario react-three-fiber), banco 28/28 y documentación (v1.4.0).
+
+Petición del usuario: nueva pestaña «3D» tras Laboratorio con el mapeo del
+cerebro y el sistema nervioso que se activa según las interacciones; poder
+poner comida buena y mala y que aprendan cuál es cuál; silueta grande para
+ver si se asustan; la mosca «tomada de Minecraft»
+(github.com/blendi-remade/fly-brain-minecraft); el gusano con el modelo 3D
+de OpenWorm; conservar todo lo anterior.
+
+Work Log:
+- Limpieza previa: el commit local f9756c1 (tool-results basura, no
+  publicado) se reseteó; tool-results/ añadido a .gitignore.
+- Investigación (subagente R-3d-worm-data): posiciones 3D reales de C.
+  elegans → openworm/c302 examples/c302_C_Full.net.nml (WormBase Virtual
+  Worm, dominio público, 302/302 somas en µm; copiado a /home/z/3d-data/).
+- Repo fly-brain-minecraft clonado y auditado: contiene el conectoma del
+  CNS adulto masculino (neuPrint male-cns:v1.0, Berg 2026, CC BY 4.0) en
+  binario FLYB con 141.781 somas con posición, FlyModel.java voxelar con
+  proporciones/paleta exactas de la mosca, y el método de voxelizado por
+  bloques (BrainBuilder) — todo reutilizado con crédito.
+- scripts/build_3d_data.py (reproducible): parsea el NML (regex de
+  músculos + namespace XML, normalización DA1→DA01) y el FLYB (SoA + tablas
+  de strings) → c_elegans_3d.json (302 somas) + fly_cns_3d.json (15.001
+  celdas voxel b64, 9 clases de color del BrainBuilder, 29 anclajes
+  larvario→adulto con fallbacks periféricos declarados).
+- Motor: FoodKind 'bitter' (quinina: huele a comida, castiga sin matar,
+  no consumible) + aprendizaje alimentario por valor (learnGood/learnBad
+  por criatura con extinción lenta; la aversión reescribe la valencia:
+  apaga FOOD_* y enciende POISON_* hacia el cebo; klinotaxis compuertada);
+  salto de rechazo y daño decreciente con la aversión; SimMode 'neuro3d'
+  (plato 20 °C rico: 44 ítems); dropFood en el hook; learn en
+  CreatureView; render 2D del cebo; drosophilaForagerGenome (tónico 0,42).
+- BUG PREEXISTENTE CORREGIDO: puesta fantasma — las moscas pagaban los
+  34 E del coste de puesta aunque layEgg abortara en lab/arena/3D;
+  layEgg ahora devuelve boolean y el coste se cobra solo con huevo real.
+- UI 3D (src/components/sim/neuro3d/): escena Canvas con terrario de agar
+  (textura canvas procedural + paredes de cristal), mosca voxelar con la
+  paleta del mod, gusano de cápsulas con las 302 neuronas reales DENTRO
+  (proyección de los somas sobre la curva de los segmentos), hologramas
+  (gusano: 300 puntos + 4.731 sinapsis con destello presináptico + 8
+  etiquetas en abanico con líneas guía; mosca: InstancedMesh de 15.001
+  vóxeles + actividad de los 29 grupos sobre sus anclajes + etiquetas),
+  silueta de depredador (ave voxel + sombra que crece según el estímulo
+  'shadow' real), ondas de tap/chorro, anillo de selección, haz al
+  holograma, pools instanciados de comida/huevos/otros, colocación por
+  clic (raycast al plato, con umbral anti-arrastre), OrbitControls.
+  Etiquetas como sprites-canvas (los Html de drei producen 10 errores de
+  unmount con React 19.2.3 — ruido preexistente, ver abajo).
+- BUG 3D corregido: flyHoloPos multiplicaba los valores normalizados
+  (0-32767) por el span completo → la nube quedaba a ~960k unidades
+  (invisible); se divide por 32767 primero y se centra.
+- Banco 3D (/home/z/calib/banco-3d.ts): 28/28 ✓ — integridad de datos
+  (8), aprendizaje del gusano (9), cebo no letal + salto de rechazo (4),
+  escape por silueta con knockout visual PR (2, semilla fija), modo/APIs
+  (5). Regresión Fase 2: 33/33 ✓ (2,96 ms/tick).
+- Calibración iterativa documentada: el terrario pobre mataba a las
+  forrajeras (la mosca no quimiotaxea — hallazgo honesto, igual que el
+  mod de Minecraft original: «a reflex layer takes over»); plato rico +
+  genoma forrajero → vida completa (110 s, muerte natural).
+- E2E navegador: pestaña 3D tras Laboratorio; soltar gusano/mosca
+  selecciona (anillo + haz); cerebro del gusano y nube de la mosca
+  renderizan (VLM confirma lóbulos cian, actividad cálida, etiquetas en
+  abanico legibles); clic coloca cebo (cubo oliva visible) y silueta (ave
+  + sombra, escape +40 px/s verificado en banco); barras de aprendizaje
+  en vivo (18 % tras comer azúcar); móvil 375×812 sin overflow.
+- Consola: ruido preexistente documentado — 20 errores
+  «Attempted to synchronously unmount a root» de Radix Tooltip ×
+  react-dom 19.2.3 bajo Chromium 155, presentes TAMBIÉN en la v1.3.0
+  publicada (verificado en producción); sin impacto funcional.
+- Docs: docs/MODO-3D.md (fuentes, anclajes, aprendizaje, simplificaciones
+  declaradas, banco, estructura), README (características + tabla con 2
+  capturas nuevas + índice), ARQUITECTURA §9bis (cuatro modos),
+  CHANGELOG 1.4.0, package.json 1.4.0.
+
+Stage Summary:
+- v1.4.0 completa: el modo 3D muestra los cuerpos y cerebros reales de
+  ambos organismos con datos públicos citados (Virtual Worm, male-cns
+  v1.0 CC BY 4.0, fly-brain-minecraft MIT), interacción por clic
+  (comida buena/amarga/silueta/golpe/chorro) y aprendizaje por valor
+  observable en barras y en el holograma. Bancos: 3D 28/28 + Fase 2 33/33.
