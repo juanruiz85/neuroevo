@@ -210,7 +210,7 @@ function OthersPool({ getWorld, species }: { getWorld: () => World | null; speci
     <instancedMesh ref={mesh} args={[undefined, undefined, 90]} frustumCulled={false}>
       <boxGeometry args={[1, 1, 1]} />
       <meshLambertMaterial
-        color={species === 'fly' ? FLY_PALETTE.TAN : '#34d399'}
+        color={species === 'fly' ? FLY_PALETTE.THORAX : '#34d399'}
         transparent
         opacity={0.85}
       />
@@ -458,10 +458,14 @@ function SceneContent({ sim }: { sim: SimApi }) {
       <StimRipples getWorld={getWorld} />
       <Beam getWorld={getWorld} />
 
-      {/* Holograma flotando sobre el plato, desplazado al fondo */}
+      {/* Holograma flotando sobre el plato, desplazado al fondo.
+          El del gusano se inclina ~34° (rotation.y) para que el anillo
+          nervioso —⊥ al eje A-P— se vea en escorzo y no de canto. */}
       <group position={[0, 34, 14]} scale={1.12}>
         {isWorm ? (
-          <WormHologram getSubject={getSubject} />
+          <group rotation={[0, 0.6, 0]}>
+            <WormHologram getSubject={getSubject} />
+          </group>
         ) : (
           <FlyHologram getSubject={getSubject} />
         )}

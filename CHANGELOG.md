@@ -1,5 +1,55 @@
 # Changelog
 
+## 1.4.1 — Modo 3D pulido: anillo nervioso, mosca propia y fix del gusano
+
+### 🐛 Correcciones
+- **El gusano ya no «lleva la textura de la mosca»**: el cuerpo voxelar de
+  la mosca se dibujaba sobre CUALQUIER sujeto seleccionado (solo comprobaba
+  que hubiera sujeto, no la especie) — al seleccionar un gusano, la mosca
+  de Minecraft se pegaba a su posición. Ahora `FlyBody` se oculta salvo con
+  una mosca.
+- **Orientación del holograma del gusano**: la cabeza quedaba a la derecha
+  aunque la UI/documentación decían «a la izquierda». Corregida la
+  proyección (`wormHoloPos`) — cabeza a la izquierda, de verdad.
+
+### 🎨 Mosca: diseño voxelar propio
+- El cuerpo de la mosca ya **no copia el modelo del mod de Minecraft**:
+  proporciones y paleta **originales de NeuroEvo**, construidas a partir de
+  la morfología real de *D. melanogaster*: cabeza dominada por los dos ojos
+  compuestos rojos con triángulo ocelar, cérvix (cuello), tórax ocre con
+  franjas dorsales y **quetas** (macroquetas dorsocentrales y escutelares),
+  escutelo, abdomen de tergitos decrecientes con bandas y punta negra del
+  macho, **alas que se pliegan sobre el abdomen en reposo** y baten al
+  volar, halterios con pedúnculo y maza, y 6 patas con ciclo de caminado.
+
+### 🧠 Holograma del gusano: puntos que se encienden (como la mosca)
+- **Fuera las 4.731 «rayas»**: se eliminan todas las sinapsis dibujadas
+  (el «ovillo») y el holograma pasa al lenguaje del cerebro de la mosca:
+  - **Capa de anatomía**: los **302 somas reales** (300 del conectoma +
+    CANL/CANR) tenues, teñidos por clase (sensorial/inter/motora; CAN en
+    gris pizarra).
+  - **Capa de actividad**: los mismos 302 puntos con blend aditivo — **solo
+    los que se activan brillan** (umbral por encima del reposo LIF; cada
+    pico destella).
+  - **Andamio neuroanatómico real** en vez del ovillo: **anillo nervioso
+    circunfaríngeo** (torus fino blanquecino — centro/orientación derivados
+    de los somas reales que lo flanquean y del eje faríngeo del arco
+    cefálico; el holograma se inclina 34° para verlo en escorzo),
+    **cordón ventral** trazado por las medias locales de los somas motores
+    reales (AS/DA/DB/DD/VA/VB/VC/VD) y **cordón dorsal** (aproximación
+    declarada). **Cada tracto se ilumina con la actividad media real de las
+    neuronas que lo forman**: el anillo con los ganglios cefálicos, el
+    ventral con sus motoras, el dorsal con los axones DA/DB/DD.
+- Gamma de visualización (√t) en los tractos para que las dinámicas de baja
+  frecuencia sean legibles.
+
+### 🧪 Calidad
+- Banco de pruebas del modo 3D ampliado a **40/40 ✓** (fix de especie,
+  originalidad de la paleta, 302 somas, orientación, anillo/cordones con
+  vecinos reales, sin aristas) + E2E con navegador (gusano sin cuerpo de
+  mosca, aro visible confirmado por visión, mosca nueva con quetas/alas
+  plegadas, móvil 375×812 sin overflow).
+
 ## 1.4.0 — Modo 3D: cuerpo y cerebro en vivo
 
 ### 🧊 Terrario 3D con anatomía real (nueva pestaña «3D», tras Laboratorio)

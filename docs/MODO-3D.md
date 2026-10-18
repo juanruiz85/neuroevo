@@ -1,6 +1,6 @@
 # Modo 3D — Cuerpo y cerebro en vivo
 
-> **Versión 1.4.0.** Pestaña «3D» del selector de modos (tras «Laboratorio»).
+> **Versión 1.4.1.** Pestaña «3D» del selector de modos (tras «Laboratorio»).
 > Un terrario 3D donde sueltas un gusano o una mosca, ves su **cuerpo
 > anatómico real** y su **cerebro disparando en vivo**, le colocas comida
 > (buena y amarga), siluetas de depredador y estímulos, y observas cómo
@@ -12,9 +12,9 @@
 
 | Elemento | Gusano (*C. elegans*) | Mosca (*D. melanogaster*) |
 |---|---|---|
-| **Cuerpo** | Cadena de cápsulas siguiendo los 8 segmentos reales del motor (ondulación en vivo), semitransparente | Mosca voxelar estilo Minecraft: tórax 6×6×6, cabeza con ojos rojos, abdomen bandeado, 2 alas de membrana, 2 halterios, 6 patas — proporciones y paleta de `FlyModel.java` |
+| **Cuerpo** | Cadena de cápsulas siguiendo los 8 segmentos reales del motor (ondulación en vivo), semitransparente | **Diseño voxelar propio** (v1.4.1, sin copiar el mod): ojos compuestos rojos dominantes + triángulo ocelar, cérvix, tórax ocre con quetas dorsocentrales/escutelares y escutelo, tergitos decrecientes con punta negra del macho, alas plegadas en reposo, halterios pedunculados, 6 patas caminantes |
 | **Neuronas dentro** | Las **302 neuronas en sus posiciones somáticas reales** (µm), coloreadas por su voltaje LIF del tick actual | — (el cerebro de la mosca está en la cabeza; se magnifica arriba) |
-| **Holograma** | El sistema nervioso completo en disposición anatómica real: 300 somas + **4.731 sinapsis** dibujadas; las aristas presinápticas activas destellan; 8 neuronas célebres etiquetadas (AVA, ASE, AFD, ASH, ALM, HSN, AVB, DVA) en abanico con líneas guía | La **nube voxelar del CNS adulto masculino** (141.781 somas reales → 15.001 celdas deduplicadas por rejilla, el mismo método del build de bloques de Minecraft) coloreada por región; sobre ella, la actividad de los **29 grupos larvarios** que simula el motor, proyectada en sus familias adultas homólogas |
+| **Holograma** | El sistema nervioso completo en disposición anatómica real, cabeza a la izquierda (v1.4.1, inclinado 34° para ver el anillo en escorzo): **capa de anatomía** con los **302 somas reales** tenues por clase (300 del conectoma + CANL/CANR) y **capa de actividad** con blend aditivo — **solo los puntos que se disparan brillan**, con el mismo lenguaje visual que el cerebro de la mosca. En vez de las 4.731 sinapsis dibujadas (el «ovillo» de la v1.4.0), el **andamio neuroanatómico canónico**: anillo nervioso circunfaríngeo (torus blanquecino) + cordón ventral (medias locales de los somas motores reales) + cordón dorsal; **cada tracto se ilumina con la actividad media real de las neuronas que lo forman**. 8 neuronas célebres etiquetadas (AVA, ASE, AFD, ASH, ALM, HSN, AVB, DVA) en abanico con líneas guía | La **nube voxelar del CNS adulto masculino** (141.781 somas reales → 15.001 celdas deduplicadas por rejilla, el mismo método del build de bloques de Minecraft) coloreada por región; sobre ella, la actividad de los **29 grupos larvarios** que simula el motor, proyectada en sus familias adultas homólogas |
 | **Comida** | Cubos voxel: fruta roja, azúcar blanca, detrito gris, **cebo amargo verde-oliva** | ídem (fruta/azúcar para ella) |
 | **Silueta** | Ave voxel oscura que se cierne y **crece** (looming 1,2 s) con su sombra proyectada sobre el agar | ídem → dispara el circuito visual→fibra gigante→salto de escape |
 | **Otros** | Anillo ámbar de selección bajo el sujeto, haz de luz al holograma, ondas expansivas de golpe/chorro, huevos | ídem |
@@ -46,7 +46,7 @@ silueta, golpe, chorro de aire).
 | Dataset | neuPrint **`male-cns:v1.0`** — CNS adulto masculino completo (Berg et al., *Cell* 189(18), 2026, doi:10.1016/j.cell.2026.08.015) |
 | Contenido | 176.422 neuronas / 6,29 M conexiones / **141.781 somas con posición** (8 nm/voxel) |
 | Vía | binario FLYB (`malecns-v1.0.flyb.gz`) de **github.com/blendi-remade/fly-brain-minecraft** (código MIT, datos **CC BY 4.0**) |
-| Cuerpo | proporciones y paleta de `FlyModel.java` / `gen_fly_texture.py` del mismo proyecto (MIT) |
+| Cuerpo | **diseño y paleta propios de NeuroEvo (v1.4.1)**, inspirados en la morfología real de *D. melanogaster*; ya no se usan el modelo ni la paleta del mod |
 | Ejes (verificados sobre la nube) | x = izquierda-derecha (lóbulos ópticos a ambos extremos) · z = eje cerebro→cordón · y = dorso-ventral |
 | Crédito UI | *«Datos CC BY 4.0 · github.com/blendi-remade/fly-brain-minecraft»* |
 
@@ -177,12 +177,51 @@ los canales olfativos callan y los nociceptivos guían la huida.
 7. **Genomas del terrario**: gusano = línea N2 de laboratorio; mosca =
    nueva línea **forrajera** (`drosophilaForagerGenome`, tónico 0,42:
    camina y explora; el looming sigue disparando el escape).
+8. **Andamio del holograma del gusano (v1.4.1)**:
+   - **Anillo nervioso**: centro (−1.4, −211, −4.4 µm) y radio derivados de
+         los somas reales que flanquean el istmo faríngeo (banda A-P
+         −232…−186, n=14); la orientación del plano sale del eje faríngeo
+         deducido del arco cefálico dorsal→ventral de los ganglios (la
+         cabeza está inclinada en el modelo Virtual Worm). El radio real
+         (~15 µm) se dibuja algo magnificado (20 µm) para legibilidad, y el
+         holograma se inclina 34° para ver el aro en escorzo (⊥ al eje A-P,
+         de canto se invisible).
+   - **Cordón ventral**: medias locales (bins de 40 µm) de los somas
+         motores reales — sin invención; sigue el arco de postura real
+         (z −66 µm en el RVG → +4 a mitad del cuerpo → −13 en la cola).
+   - **Cordón dorsal**: tracto real **sin somas propios** (son los axones
+         de DA/DB/DD, con soma ventral) — su ruta es una aproximación por
+         la línea media dorsal siguiendo el estrechamiento del cuerpo.
+   - **Brillo por tracto**: cada tracto muestra la media (√t, gamma de
+         visualización) de sus neuronas reales: anillo = ganglios cefálicos
+     (202), ventral = AS/DA/DB/DD/VA/VB/VC/VD en ±45 µm, dorsal = DA/DB/DD
+         en ±60 µm.
 
 ---
 
-## 6. Banco de pruebas (28/28 ✓)
+## 6. Banco de pruebas (40/40 ✓)
 
-`/home/z/calib/banco-3d.ts` — 28 comprobaciones, todas sobre el motor real:
+`/home/z/calib/banco-3d-v2.ts` (v1.4.1; el histórico `banco-3d.ts` de la
+v1.4.0 con sus 28/28 está resumido abajo) — 40 comprobaciones sobre los
+ componentes reales del modo 3D:
+
+1. **Fix de especie (3)**: `FlyBody` se oculta con cualquier sujeto que no
+     sea mosca (guard antes de posicionar); `WormBody` mantiene su guard.
+2. **Diseño propio de la mosca (10)**: 0/16 colores del mod en la paleta;
+   declaraciones de diseño propio; partes anatómicas nuevas (ocelos,
+   quetas, franjas, cérvix, punta del macho, vena transversal); alas
+   plegadas en reposo; patas con ciclo de caminado.
+3. **Holograma del gusano (27)**: 302 somas (300 + CANL/CANR sin sinapsis,
+   anatomía pura); cabeza a la izquierda (−23…+23 u); anillo de 64 puntos
+   cerrado con diámetros correctos (L-R 2,55 · D-V 2,32 u) iluminado por
+   202 vecinos cefálicos; cordón ventral (110 pts) nunca dorsal (z ≤ +4,2
+   µm), sin tejer (retrocesos < 3 µm), vecinos = las 75 motoras reales;
+   cordón dorsal dorsal (z > 8 µm en el cuerpo) con vecinos DA/DB/DD (22);
+   dorsal sobre ventral a mitad del cuerpo; todo dentro de ±25 u; sin
+   `WORM_EDGES`; dos capas de puntos; capa aditiva con umbral; anillo
+   torus en su plano real.
+
+### 6.0 Banco histórico v1.4.0 (28/28 ✓)
 
 1. **Datos anatómicos (8)**: 300/300 somas con posición; tripletes µm
    válidos; nube = 15.001 celdas; decodificación b64 exacta; clases 0-8;
@@ -218,16 +257,24 @@ p95 3,81 ms — mejor que antes del modo 3D).
   calibrada para Rankin) se muere de hambre en el terrario → línea
   forrajera propia del modo 3D.
 
-### 6.2 E2E navegador
+### 6.2 E2E navegador (v1.4.1, re-verificado completo)
 
-Modo 3D carga desde la pestaña; soltar gusano/mosca selecciona al sujeto
-(anillo ámbar + haz); el cerebro del gusano (puntos+líneas+8 etiquetas en
-abanico) y de la mosca (nube cian/blanca/lime con actividad cálida y
-etiquetas de grupos) renderizan; clic coloca el cebo (cubo verde-oliva
-visible); las barras de aprendizaje se mueven (18 %/1 comida tras comer el
-azúcar); la silueta (ave voxel + sombra que crece) aparece y dispara el
-escape; móvil 375×812 sin overflow horizontal, holograma arriba y tarjetas
-abajo. Consola: solo el ruido preexistente documentado (§7).
+Modo 3D carga desde la pestaña; soltar gusano lo selecciona (anillo ámbar
++ haz) y **ya no aparece cuerpo de mosca sobre él** (fix verificado por
+visión: `fly_body_on_worm: false`); el holograma del gusano muestra las
+dos capas (somas tenues + **puntos que se encienden**), el **aro blanquecino
+visible en escorzo** (confirmado por visión en zoom), los cordones y las 8
+etiquetas; **sin ovillo de líneas** (verificado: «solo algunas líneas
+estructurales limpias… no hay miles de líneas»); la mosca nueva renderiza
+ojos rojos, quetas, bandas, punta negra y **alas plegadas**; el holograma
+de la mosca sigue OK; móvil 375×812 sin overflow, holograma y aro visibles.
+Consola: solo el ruido preexistente documentado (§7).
+
+Hallazgos de método durante la verificación: el anillo visto de canto es
+invisible (⊥ al eje A-P) → inclinación 34° del holograma + torus con
+brillo blanquecino separado del lenguaje de color de la actividad; las
+líneas de 1 px se pierden en la nube de somas → torus 3D; la media de un
+grupo grande (202 neuronas) casi nunca pasa de 0,3 → gamma √t.
 
 ## 7. Nota ambiental: consola en desarrollo
 
@@ -246,12 +293,12 @@ Pendiente de actualizar Radix/react-dom en cuanto salga el parche upstream.
 ```
 src/components/sim/neuro3d/
 ├── store.ts        # zustand: herramienta activa + preferencias
-├── data.ts         # datasets 3D decodificados + conversiones mundo↔escena
-├── vox.tsx         # helpers voxel (paleta del mod, rampa de actividad)
+├── data.ts         # datasets 3D + andamio anatómico (anillo/cordones derivados de somas reales)
+├── vox.tsx         # helpers voxel (paleta PROPIA de la mosca, rampa de actividad)
 ├── labels.tsx      # etiquetas-sprite canvas (sin portales DOM)
-├── fly-body.tsx    # mosca voxelar (FlyModel de fly-brain-minecraft)
+├── fly-body.tsx    # mosca voxelar (diseño propio de NeuroEvo, D. melanogaster real)
 ├── worm-body.tsx   # gusano: cápsulas + 302 neuronas reales dentro
-├── brain-hologram.tsx # hologramas: gusano (somos+sinapsis) / mosca (nube+anclajes)
+├── brain-hologram.tsx # hologramas: gusano (2 capas+anillo+cordones) / mosca (nube+anclajes)
 ├── scene.tsx       # Canvas: terrario, comida, silueta, ondas, clic, cámara
 ├── panel.tsx       # controles: sujeto, colocar, aprendizaje, leyenda…
 └── index.tsx       # carga diferida (ssr:false)

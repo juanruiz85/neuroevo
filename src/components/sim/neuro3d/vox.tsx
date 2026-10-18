@@ -1,29 +1,46 @@
 'use client'
 
-// Helpers de voxel (estética Minecraft del cuerpo de la mosca, tomada del
-// modelo fly-brain-minecraft con su paleta original de gen_fly_texture.py).
+// Helpers de voxel del modo 3D.
+//
+// FLY_PALETTE: paleta PROPIA de NeuroEvo, elegida a partir de la
+// pigmentación real de Drosophila melanogaster (cutícula ocre-amarillenta,
+// ojos compuestos rojo ladrillo, bandas tergales oscuras, punta abdominal
+// negra del macho, quetas casi negras). No se reutilizan la paleta ni el
+// modelo del mod de Minecraft.
 
 import { forwardRef } from 'react'
 import * as THREE from 'three'
 
-/** Paleta original del mod (gen_fly_texture.py). */
+/** Paleta propia del diseño voxelar de la mosca (D. melanogaster real). */
 export const FLY_PALETTE = {
-  TAN: '#c8a165',
-  SHADE: '#8b5a2b',
-  THORAX: '#b8905a',
-  HEAD: '#c39a62',
-  BAND: '#2a1e14',
-  TIP: '#1a1410',
-  EYE: '#b22222',
-  EYE_HI: '#e04a2c',
-  PROBOSCIS: '#a98555',
-  ANTENNA: '#a67f4e',
-  HALTERE: '#c9a26b',
-  FEMUR: '#6e5236',
-  TIBIA: '#553e2a',
-  TARSUS: '#423020',
-  MEMBRANE: '#dce8f0',
-  VEIN: '#6e5a3c',
+  // cutícula
+  THORAX: '#c2a066', // escudo torácico ocre
+  PRONOTUM: '#b08e56', // lóbulo pronotal anterior
+  NECK: '#a3855a', // cérvix
+  HEAD: '#b99a63', // cápsula cefálica
+  STRIPE: '#5d4423', // franjas dorsales del tórax
+  BRISTLE: '#1e1409', // quetas (macroquetas dorsocentrales/escutelares)
+  // abdomen
+  ABDOMEN: '#ab8a52', // tergitos
+  BAND: '#3a2a16', // banda posterior de cada tergito
+  MALE_TIP: '#171008', // pigmentación negra del extremo del macho
+  // cabeza
+  EYE: '#b23227', // ojos compuestos rojo ladrillo
+  EYE_HI: '#d95b3a', // brillo pseudopupila
+  OCELLUS: '#3a2417', // triángulo ocelar
+  ANTENNA: '#6d5233', // antenas
+  ARISTA: '#2e2113', // arista plumosa
+  PROBOSCIS: '#8a6a44', // probóscide
+  // alas + halterios
+  WING_MEMBRANE: '#efe8da', // membrana alar translúcida
+  WING_VEIN: '#7a6238', // borde costal + venas
+  WING_CROSS: '#8d7448', // venas transversales
+  HALTERE: '#c8ad7a', // halterios (pedúnculo + maza)
+  // patas
+  COXA: '#7a5f3c',
+  FEMUR: '#6d5433',
+  TIBIA: '#584128',
+  TARSUS: '#33251a',
 } as const
 
 /**

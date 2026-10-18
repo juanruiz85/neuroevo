@@ -1274,3 +1274,75 @@ Work Log:
 
 Stage Summary:
 - v1.4.0 EN VIVO y verificada de punta a punta en producción.
+
+---
+Task ID: 20
+Agent: main (Z.ai Code)
+Task: v1.4.1 — fix del cuerpo de mosca sobre el gusano, diseño voxelar
+propio de la mosca y holograma del gusano con puntos que se encienden
+(como la mosca) + andamio neuroanatómico real.
+
+Work Log:
+- Contexto recuperado: el repo local estaba en v1.0.0 (contexto perdido);
+  sincronizado con origin/main (d1f60ff, v1.4.0) y `bun install` (three
+  faltaba → GET / 500 → 200).
+- FIX 1 (bug del usuario): `FlyBody` solo comprobaba «hay sujeto», no la
+  especie → al seleccionar un gusano, el cuerpo voxelar de la mosca se
+  pegaba a su posición («el gusano tiene parte de la textura de la mosca»).
+  Guard `c.species !== 'fly'` antes de posicionar (verificado por visión:
+  fly_body_on_worm = false).
+- FIX 2 (diseño propio de la mosca): reescrito `fly-body.tsx` desde la
+  morfología real de D. melanogaster — ojos compuestos rojos dominantes
+  con pseudopupila y triángulo ocelar, cérvix, pronoto + escudo con
+  franjas dorsales y 6 macroquetas (4 dorsocentrales + 2 escutelares),
+  escutelo, 4 tergitos decrecientes con bandas + punta negra del macho,
+  alas que se PLEGAN sobre el abdomen en reposo y baten al volar (lift por
+  velocidad), halterios pedunculados, 6 patas con ciclo de caminado.
+  Paleta propia en `vox.tsx` (24 tonos nuevos, 0/16 del mod; banco lo
+  exige). Procedencia del panel actualizada («diseño propio de NeuroEvo»).
+- FIX 3 (holograma del gusano, petición del usuario: «puntos que se
+  activan en vez de rayas, como el cerebro de la mosca»):
+  - Eliminadas las 4.731 aristas (WORM_EDGES) — el «ovillo».
+  - Dos capas de puntos: anatomía (302 somas tenues por clase; CANL/CANR
+    ahora presentes como anatomía pura) + actividad (aditiva, umbral sobre
+    el reposo LIF: solo lo que se activa brilla; pico = destello).
+  - Andamio neuroanatómico DERIVADO de los datos reales en `data.ts`:
+    anillo circunfaríngeo (centro (−1.4, −211, −4.4) µm y orientación del
+    eje faríngeo por el arco cefálico de los ganglios — la cabeza está
+    inclinada en Virtual Worm), cordón ventral (medias locales 40 µm de
+    los 72 somas motores reales; arco de postura −66→+4→−13 µm), cordón
+    dorsal (aproximación declarada; tracto sin somas).
+  - Cada tracto brilla con la actividad media REAL de sus neuronas:
+    anillo = 202 cefálicas, ventral = motoras ±45 µm, dorsal = DA/DB/DD
+    ±60 µm (sus axones SON el cordón dorsal). Gamma √t de visualización.
+  - Anillo como torus blanquecino (torusGeometry, plane real) — las
+    líneas de 1 px se perdían; el holograma se inclina 34° (rotation.y)
+    porque el aro ⊥ A-P se ve de canto desde la cámara.
+  - FIX 4 (encontrado de paso): `wormHoloPos` ponía la cabeza a la
+    DERECHA aunque UI/docs decían izquierda — corregido.
+- Banco `/home/z/calib/banco-3d-v2.ts`: 40/40 ✓ (especie, originalidad de
+  paleta, 302 somas, orientación, anillo/cordones con vecinos reales,
+  sin tejer, sin aristas). Limpio 0 errores. GET / 200.
+- E2E agent-browser + VLM (14 verificaciones): gusano sin cuerpo de
+  mosca; dos capas de puntos (brillantes vs tenues); sin ovillo («solo
+  algunas líneas estructurales limpias»); aro blanquecino visible en
+  escorzo (zoom ×3); cordón ventral turquesa continuo; 8 etiquetas;
+  cabeza a la izquierda; mosca nueva (ojos rojos, quetas, bandas, punta
+  negra, alas plegadas, 6 patas); holograma de la mosca intacto; móvil
+  375×812 sin overflow con aro visible; consola limpia.
+- Método de depuración del aro: el escaneo de píxeles fallaba por
+  asumir el canvas a página completa (mide 830×429 en (17,74)); el VLM
+  no lo veía por (a) posición de pantalla mal calculada, (b) canto,
+  (c) brillo igual al de la nube. Resuelto con inclinación + torus +
+  lenguaje visual separado (estructura = blanco, actividad = rampa).
+- Docs: CHANGELOG 1.4.1, README (modo 3D), MODO-3D.md (§1 tabla, §2.2,
+  §5.8 simplificaciones del andamio, §6 banco 40/40 + histórico, §6.2
+  E2E, §8 estructura), panel de la UI.
+
+Stage Summary:
+- v1.4.1: el gusano ya no lleva la mosca encima; la mosca es un diseño
+  propio documentado (nada del mod); el holograma del gusano usa el
+  lenguaje visual de la mosca (302 somas reales, solo lo activado brilla)
+  sobre el andamio neuroanatómico canónico (anillo + cordones) derivado
+  de los somas reales, con cada tracto iluminado por sus neuronas reales.
+  40/40 + E2E con visión + móvil verificados. Listo para tag v1.4.1.

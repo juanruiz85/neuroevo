@@ -212,10 +212,14 @@ export function Neuro3DControls({ sim }: { sim: SimApi }) {
         <CardContent className="space-y-2 text-xs">
           {sel?.species === 'worm' ? (
             <p className="leading-snug text-muted-foreground">
-              Las <b>302 neuronas</b> del gusano en su disposición anatómica
-              real (WormBase Virtual Worm): cada punto es un soma vivo (LIF)
-              y cada línea una de las <b>4.731 sinapsis</b> — las
-              presinápticas activas destellan. Cabeza a la izquierda.
+              El <b>sistema nervioso completo</b> en disposición anatómica real
+              (WormBase Virtual Worm): los <b>302 somas</b> tenues por clase y,
+              encima, los <b>puntos que se activan</b> brillando con cada
+              voltaje LIF — igual que el cerebro de la mosca. El andamio es la
+              neuroanatomía canónica: <b>anillo nervioso</b> + <b>cordón
+              ventral</b> (trazado por los somas motores reales) + <b>cordón
+              dorsal</b>; cada tracto se ilumina con la actividad real de las
+              neuronas que lo forman. Cabeza a la izquierda.
             </p>
           ) : (
             <p className="leading-snug text-muted-foreground">
@@ -296,8 +300,10 @@ export function Neuro3DControls({ sim }: { sim: SimApi }) {
               <b className="text-foreground">Mosca (anatomía):</b> CNS adulto
               masculino neuPrint <i>male-cns:v1.0</i> (Berg et al., Cell
               2026), datos CC BY 4.0, extraído del binario FLYB de
-              github.com/blendi-remade/fly-brain-minecraft (MIT). Cuerpo
-              voxelar según su FlyModel original.
+              github.com/blendi-remade/fly-brain-minecraft (MIT). El cuerpo
+              voxelar es un <b className="text-foreground">diseño propio</b>{' '}
+              de NeuroEvo (proporciones y paleta originales inspiradas en la
+              morfología real de <i>D. melanogaster</i>).
             </p>
             <Separator />
             <p>
