@@ -182,6 +182,27 @@ function drawFood(ctx: CanvasRenderingContext2D, f: Food, now: number): void {
       ctx.fill()
       break
     }
+    case 'bitter': {
+      // Cebo amargo (quinina/denatonio): galleta verdosa-oliva con puntito
+      // amargo — se distingue del veneno letal (violeta).
+      ctx.save()
+      ctx.shadowColor = '#4d7c0f'
+      ctx.shadowBlur = 7
+      ctx.fillStyle = '#3f6212'
+      ctx.beginPath()
+      ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+      ctx.fillStyle = '#a3a3a3'
+      ctx.beginPath()
+      ctx.arc(f.x - f.r * 0.28, f.y - f.r * 0.22, f.r * 0.3, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = '#d4d4d4'
+      ctx.beginPath()
+      ctx.arc(f.x + f.r * 0.3, f.y + f.r * 0.25, f.r * 0.18, 0, Math.PI * 2)
+      ctx.fill()
+      break
+    }
   }
 }
 

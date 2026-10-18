@@ -22,6 +22,7 @@ import { createBrain, type IBrainAdapter } from './connectome/adapter'
 import { CH, NN_CHANNELS } from './connectome/sensors'
 import { DCH } from './connectome/fly-sensors'
 import {
+  MASK,
   SPECIES_CONFIG,
   WORM_LIFE,
   WORM_STAGE_DRAIN,
@@ -30,7 +31,7 @@ import {
   type Species,
   type WormStage,
 } from './types'
-import type { World } from './world'
+import type { Food, World } from './world'
 
 const POISON_MASK = 8
 
@@ -128,6 +129,18 @@ export class Creature {
   laidFlash = 0
   /** Ráfaga de gusto faríngeo al ingerir (GNP de la mosca). */
   gutFlash = 0
+  /** Ráfaga de sabor amargo al probar un cebo (GRN amargas). */
+  bitterFlash = 0
+  /** Refractario de degustación del cebo amargo (s). */
+  bitterCd = 0
+  /** Aprendizaje alimentario por valor: refuerzo por comida buena. */
+  learnGood = 0
+  /** Aprendizaje alimentario por valor: aversión aprendida a lo amargo. */
+  learnBad = 0
+  /** nº de comilonas buenas (recompensa). */
+  bitesGood = 0
+  /** nº de pruebas del cebo amargo (castigo). */
+  bitesBitter = 0
   private prevHeading = 0
   private proprioSm = 0
   private foodNearSm = 0
@@ -203,7 +216,11 @@ export class Creature {
     this.effVision = vision
 
     // — Sensores —
-    const food = world.nearestFood(this.x, this.y, vision, cfg.diet)
+    // El cebo amargo HUELE como comida (los cebos reales de los ensayos
+    // de aprendizaje llevan azúcar: atraen a los ingenuos); la aversión
+    // aprendida luego apaga ese canal y enciende el nociceptivo.
+    const smellMask = cfg.diet | MASK.bitter
+    const food = world.nearestFood(this.x, this.y, vision, smellMask)
     const poison = world.nearestFood(this.x, this.y, vision, POISON_MASK)
     const crowd = world.countNeighbors(this.x, this.y, 42, this.species, this)
 
@@ -219,6 +236,22 @@ export class Creature {
     }
     if (food) {
       setDirection(inp, CH.FOOD_X, this, food.x, food.y, vision)
+      if (food.kind === 'bitter' && this.learnBad > 0.02) {
+        // Aprendizaje por valor: la aversión aprendida (RIM/DAN) reescribe
+        // la valencia del cebo — el olor "rico" se apaga y el mismo cebo
+        // pasa a excitar la vía nociceptiva (lo aprendido huele "mal").
+        const keep = 1 - 0.9 * this.learnBad
+        inp[CH.FOOD_X] *= keep
+        inp[CH.FOOD_Y] *= keep
+        inp[CH.FOOD_NEAR] *= keep
+        if (!poison) {
+          const pb = 0.85 * this.learnBad
+          setDirection(inp, CH.POISON_X, this, food.x, food.y, vision)
+          inp[CH.POISON_X] *= pb
+          inp[CH.POISON_Y] *= pb
+          inp[CH.POISON_NEAR] *= pb
+        }
+      }
     }
     inp[CH.CROWD] = Math.min(1, crowd / 5)
 
@@ -319,6 +352,13 @@ export class Creature {
     // Ráfaga de gusto faríngeo: los GRNs faríngeos responden al ingerir.
     if (this.foodEaten > eatenBefore) this.gutFlash = 1
     this.gutFlash = Math.max(0, this.gutFlash - dt * 2.2)
+    // Aprendizaje alimentario: extinción lenta de la memoria (Rankin et
+    // al. 1990: la habituación se recupera en ~decenas de minutos; aquí
+    // la aversión decae en ~15 min de simulación) y refractario del cebo.
+    this.learnGood = Math.max(0, this.learnGood - dt / 600)
+    this.learnBad = Math.max(0, this.learnBad - dt / 900)
+    this.bitterCd = Math.max(0, this.bitterCd - dt)
+    this.bitterFlash = Math.max(0, this.bitterFlash - dt * 2)
 
     // — Ciclo de vida y reproducción —
     if (this.species === 'worm') {
@@ -396,7 +436,7 @@ export class Creature {
   private senseWorm(
     world: World,
     inp: number[],
-    food: { x: number; y: number } | null,
+    food: Food | null,
     dt: number,
   ): void {
     const decay = Math.exp(-dt * 6)
@@ -440,7 +480,11 @@ export class Creature {
     inp[CH.PROPRIO] = clamp(this.proprioSm / 2.2, -1, 1)
 
     // Deriva del gradiente (klinotaxis): ASE dispara al CAMBIO, no al nivel.
-    const near = food ? 1 - Math.min(1, Math.hypot(food.x - this.x, food.y - this.y) / Math.max(1, this.effVision)) : 0
+    // La aversión aprendida también apaga esta vía (cebo amargo).
+    const near = food
+      ? (1 - Math.min(1, Math.hypot(food.x - this.x, food.y - this.y) / Math.max(1, this.effVision))) *
+        (food.kind === 'bitter' ? 1 - 0.9 * this.learnBad : 1)
+      : 0
     this.foodNearSm += (near - this.foodNearSm) * Math.min(1, dt * 3)
     const d = (this.foodNearSm - this.foodPrevSm) / Math.max(dt, 1e-4)
     this.foodPrevSm = this.foodNearSm
@@ -459,7 +503,7 @@ export class Creature {
   private senseFly(
     world: World,
     inp: number[],
-    food: { x: number; y: number } | null,
+    food: Food | null,
     dt: number,
   ): void {
     const decay = Math.exp(-dt * 6)
@@ -499,7 +543,11 @@ export class Creature {
     inp[DCH.PROPRIO] = clamp(this.proprioSm / 3.5, -1, 1)
 
     // Klinotaxis olfativa: las ORNs se adaptan → disparan al CAMBIO.
-    const near = food ? 1 - Math.min(1, Math.hypot(food.x - this.x, food.y - this.y) / Math.max(1, this.effVision)) : 0
+    // La aversión aprendida también apaga esta vía (cebo amargo).
+    const near = food
+      ? (1 - Math.min(1, Math.hypot(food.x - this.x, food.y - this.y) / Math.max(1, this.effVision))) *
+        (food.kind === 'bitter' ? 1 - 0.9 * this.learnBad : 1)
+      : 0
     this.foodNearSm += (near - this.foodNearSm) * Math.min(1, dt * 3)
     const d = (this.foodNearSm - this.foodPrevSm) / Math.max(dt, 1e-4)
     this.foodPrevSm = this.foodNearSm

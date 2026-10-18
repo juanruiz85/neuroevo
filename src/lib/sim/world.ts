@@ -173,6 +173,7 @@ export class World {
     detritus: 0,
     sugar: 0,
     poison: 0,
+    bitter: 0,
   }
   private readonly foodGrid: Food[][] = []
   private readonly creatureGrid: Creature[][] = []
@@ -184,6 +185,7 @@ export class World {
     detritus: 0,
     sugar: 0,
     poison: 0,
+    bitter: 0,
   }
 
   constructor(width = 1280, height = 840, env: EnvParams = DEFAULT_ENV) {
@@ -248,6 +250,14 @@ export class World {
       this.env.temperature = 20
       this.env.dayLength = 600 // luz estable durante el ensayo
       this.addFoodAt('sugar', this.width / 2, this.height / 2 + 140)
+    }
+    if (mode === 'neuro3d') {
+      // Terrario del modo 3D: mismo plato limpio que el Laboratorio
+      // (20 °C, luz estable), con una gota de azúcar de bienvenida al
+      // centro. La comida amarga y la silueta las coloca quien observa.
+      this.env.temperature = 20
+      this.env.dayLength = 600
+      this.addFoodAt('sugar', this.width / 2, this.height / 2)
     }
   }
 
@@ -471,6 +481,7 @@ export class World {
     this.foodCounts.detritus = 0
     this.foodCounts.sugar = 0
     this.foodCounts.poison = 0
+    this.foodCounts.bitter = 0
     for (const f of this.foods) {
       this.foodGrid[this.cellIdx(f.x, f.y)].push(f)
       this.foodCounts[f.kind]++
@@ -573,9 +584,27 @@ export class World {
             this.foodCounts.poison--
             return
           }
+          if (f.kind === 'bitter') {
+            // Prueba del cebo amargo (quinina/denatonio): castigo leve NO
+            // letal + aversión aprendida. Con refractario de degustación
+            // (1.2 s) para que una sola prueba cuente como una experiencia.
+            // El cebo NO se consume: queda para repetir el ensayo.
+            if (c.bitterCd <= 0) {
+              c.bitterCd = 1.2
+              c.bitterFlash = 1
+              c.bitesBitter++
+              c.learnBad = Math.min(1, c.learnBad + 0.5)
+              c.energy += FOOD_INFO.bitter.energy
+            }
+            return
+          }
           if ((f.mask & cfg.diet) !== 0) {
             c.energy = Math.min(cfg.maxEnergy, c.energy + f.energy)
             c.foodEaten++
+            // Refuerzo positivo de la comida buena (señal de recompensa:
+            // NSM/serotonina en el gusano, octopamina en la mosca).
+            c.learnGood = Math.min(1, c.learnGood + 0.25)
+            c.bitesGood++
             f.dead = true
             this.foodCounts[f.kind]--
             return
@@ -716,12 +745,14 @@ export class World {
       detritus: 0.9 * e.foodRate * (0.55 + (e.humidity / 100) * 1.1),
       sugar: 0.16 * e.foodRate,
       poison: 0.07 * e.poisonRate,
+      bitter: 0, // solo lo coloca quien observa (modo 3D / laboratorio)
     }
     const caps: Record<FoodKind, number> = {
       fruit: this.fruitCap(),
       detritus: this.detritusCap(),
       sugar: 14,
       poison: Math.round(8 + 18 * e.poisonRate),
+      bitter: 40,
     }
     for (const kind of ['fruit', 'detritus', 'sugar', 'poison'] as FoodKind[]) {
       this.spawnTimers[kind] += dt * rates[kind]
@@ -760,6 +791,7 @@ export class World {
       detritus: this.foodCounts.detritus,
       sugar: this.foodCounts.sugar,
       poison: this.foodCounts.poison,
+      bitter: this.foodCounts.bitter,
       flySpeed: fly ? flySpeed / fly : 0,
       wormSpeed: worm ? wormSpeed / worm : 0,
       flyGen: fly ? flyGen / fly : 0,
@@ -865,6 +897,12 @@ export class World {
     return {
       ...base,
       ...worm,
+      learn: {
+        good: Math.round(c.learnGood * 100) / 100,
+        bad: Math.round(c.learnBad * 100) / 100,
+        bites: c.bitesGood,
+        bitterBites: c.bitesBitter,
+      },
       ...(con ? { connectome: { v: con.v as number[], s: con.s as number[] } } : {}),
     }
   }

@@ -12,6 +12,7 @@ import {
   type EliteRecord,
   type EnvParams,
   type EvolutionRecordDTO,
+  type FoodKind,
   type SimMode,
   type Species,
   type StimKind,
@@ -43,6 +44,8 @@ export interface SimApi {
   stimulate: (kind: StimKind, x: number, y: number) => void
   setKnockout: (species: Species, key: string, on: boolean) => void
   knockoutOn: (species: Species, key: string) => boolean
+  /** Coloca comida (fruta/azúcar/detrito/veneno/cebo amargo). */
+  dropFood: (kind: FoodKind, x: number, y: number) => void
   // ——— Arena / Retos ———
   arenaAddWall: (w: Wall) => void
   arenaUndoWall: () => void
@@ -251,6 +254,15 @@ export function useSimulation(): SimApi {
     [],
   )
 
+  /** Coloca comida del tipo dado (fruta/azúcar/detrito/veneno/cebo amargo). */
+  const dropFood = useCallback(
+    (kind: FoodKind, x: number, y: number) => {
+      worldRef.current?.addFoodAt(kind, x, y)
+      refresh()
+    },
+    [refresh],
+  )
+
   // ——— Arena ———
 
   const arenaAddWall = useCallback(
@@ -314,6 +326,7 @@ export function useSimulation(): SimApi {
     stimulate,
     setKnockout,
     knockoutOn,
+    dropFood,
     arenaAddWall,
     arenaUndoWall,
     arenaSetGoal,

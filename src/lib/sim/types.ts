@@ -3,10 +3,15 @@
 import type { BrainKind } from './connectome/adapter'
 
 export type Species = 'fly' | 'worm'
-export type FoodKind = 'fruit' | 'detritus' | 'sugar' | 'poison'
+export type FoodKind =
+  | 'fruit'
+  | 'detritus'
+  | 'sugar'
+  | 'poison'
+  | 'bitter'
 
-/** Modos de simulación (Fase 2). */
-export type SimMode = 'ecosystem' | 'arena' | 'lab'
+/** Modos de simulación (Fase 2 + modo 3D). */
+export type SimMode = 'ecosystem' | 'arena' | 'lab' | 'neuro3d'
 
 /** Pared de la arena (segmento con grosor de colisión). */
 export interface Wall {
@@ -134,7 +139,7 @@ export const WORM_STAGE_SCALE: Record<WormStage, number> = {
 }
 
 // Máscaras de dieta para las consultas espaciales.
-export const MASK = { fruit: 1, detritus: 2, sugar: 4, poison: 8 } as const
+export const MASK = { fruit: 1, detritus: 2, sugar: 4, poison: 8, bitter: 16 } as const
 
 export interface EnvParams {
   /** °C objetivo del clima (la temperatura real oscila con el día/noche). */
@@ -223,6 +228,11 @@ export const FOOD_INFO: Record<
   detritus: { energy: 34, radius: 5.5, ttl: 100, mask: MASK.detritus },
   sugar: { energy: 26, radius: 4.5, ttl: 50, mask: MASK.sugar },
   poison: { energy: -32, radius: 6, ttl: 45, mask: MASK.poison },
+  // Cebos amargos del experimento de aprendizaje (quinina/denatonio):
+  // huelen como comida (atraen a los ingenuos) pero castigan al probarlos.
+  // NO son letales (a diferencia del veneno): sirven para observar la
+  // transición de la atracción ingenua a la aversión aprendida.
+  bitter: { energy: -6, radius: 6, ttl: 300, mask: MASK.bitter },
 }
 
 export interface StatPoint {
@@ -234,6 +244,7 @@ export interface StatPoint {
   detritus: number
   sugar: number
   poison: number
+  bitter: number
   flySpeed: number
   wormSpeed: number
   flyGen: number
@@ -273,6 +284,15 @@ export interface CreatureView {
   spermLeft?: number
   /** Feromona de conglomerado percibida [0, 1]. */
   pheromone?: number
+  /**
+   * Aprendizaje alimentario por valor (experimento del modo 3D):
+   * good = refuerzo acumulado por comida buena, bad = aversión
+   * aprendida por cebos amargos, bites/bitterBites = contador de
+   * comilonas y pruebas. Circuito real de referencia: NSM (serotonina,
+   * recompensa) y RIM (tiramina, castigo) en C. elegans; DAN→MBON
+   * (dopamina/octopamina, valencia) en Drosophila.
+   */
+  learn?: { good: number; bad: number; bites: number; bitterBites: number }
   x: number
   y: number
   inputs: number[]
