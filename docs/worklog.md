@@ -1093,3 +1093,80 @@ Work Log:
 
 Stage Summary:
 - v1.3.0 lista para publicar: push de main + tag v1.3.0 → Pages + Release.
+
+---
+Task ID: R-3d-worm-data
+Agent: general-purpose
+Task: Investigación (sin código de proyecto): encontrar un dataset público y
+descargable con las posiciones 3D reales de los somas de las ~302 neuronas de
+C. elegans (x,y,z por nombre) para el futuro visualizador 3D WebGL del
+conectoma (el "modelo 3D del gusano" que recordaba el usuario = OpenWorm).
+
+Work Log:
+- Repos clonados en /tmp/worm-repos (NADA en el proyecto): openworm/c302,
+  openworm/CElegansNeuroML, openworm/wormbrowser, openworm/Sibernetic.
+  openworm/Explorer → HTTP 404 (repo retirado de GitHub);
+  openworm/SmoothedMuscleModel → ya no existe (clone falla).
+- Descartados:
+  - CElegansNeuroML: Generated.net.xml y generatedNeuroML2/CellsOnly.net.nml
+    tienen 302 <location> pero TODAS a (0,0,0) (las posiciones reales viven en
+    las morfologías). Sus 302 archivos generatedNeuroML/*.morph.xml sí tienen
+    el soma (segment 0, <mml:proximal x y z>, lengthUnits="micron") — misma
+    fuente que c302 pero fragmentada en 302 archivos NeuroML v1.
+  - wormbrowser (app WebGL): empaqueta los meshes originales del Virtual Worm
+    en 18 archivos .utf8 con nombres hasheados (war/models/Virtual_Worm/) —
+    no parseable sin su runtime.
+  - Sibernetic: modelo físico del cuerpo/músculos, sin somas de neuronas.
+- ELEGIDO: openworm/c302 → examples/c302_C_Full.net.nml (red NeuroML 2
+  completa, parámetro C "Full"): 397 poblaciones = 302 neuronas + 95 músculos;
+  cada <population id="NOMBRE"> lleva <instance id="0"><location x y z/> con
+  la posición del SOMA en micrómetros (µm es la unidad de longitud estándar de
+  NeuroML 2; coincide con lengthUnits="micron" de las morfologías fuente y
+  con la anatomía: faringe I1L en y=-300, PLML en y=+410).
+- Verificación cruzada contra nuestro conectoma
+  (src/lib/sim/data/c_elegans_connectome.json, 300 neuronas): 300/300 tienen
+  posición. Única normalización necesaria: los IDs de 1 dígito de las familias
+  ventrales van SIN cero en c302 (DA01→DA1, VB01→VB1… solo AS/DA/DB/DD/VA/VB/
+  VC/VD de un dígito; VA10-VB11-AS10-VD13 etc. ya coinciden). Extras con
+  posición que no están en el conectoma: CANL (25.35, 47.95, 1.65) y CANR
+  (-27.25, 47.95, 1.65).
+- Rango de coordenadas (302 neuronas): x ∈ [-27.35, 25.75] (izquierda +,
+  derecha −: ASEL +4.12 / ASER −8.38), y ∈ [-311.65, 410.15] (cabeza −y /
+  cola +y), z ∈ [-66.75, 58.5] (≈ dorsal + / ventral − en la cabeza: RMED
+  z=58.5 vs RMEV z=35.7). Longitud total del modelo ≈ 722 µm. 0 neuronas en
+  (0,0,0). Bonus: cada población incluye <property tag="type"> (interneuron/
+  sensory/…) y tag="neurotransmitter".
+- Origen de la geometría (README de CElegansNeuroML): modelo 3D del "WormBase
+  Virtual Worm" de Dr. Christian Grove y Dr. Paul Sternberg (CalTech),
+  liberado al dominio público (Blender files feb-2012), convertido a NeuroML
+  por OpenWorm. Es la misma geometría del gusano 3D que gira en openworm.org.
+  c302 es MIT (Copyright 2024 OpenWorm) y se cita como Gleeson et al. 2018,
+  Phil. Trans. R. Soc. B 373:20170379.
+- Copiado el archivo crudo con su nombre original a
+  /home/z/3d-data/c302_C_Full.net.nml (1.399.488 bytes, 397 <location>,
+  sha256 619d714bcee72a83c056fce8a594aea791061f74f19d22c8c9da34c0656deb0c).
+  Descarga directa alternativa (verificada HTTP 200):
+  https://raw.githubusercontent.com/openworm/c302/master/examples/c302_C_Full.net.nml
+
+Stage Summary:
+- FUENTE ELEGIDA: openworm/c302, archivo examples/c302_C_Full.net.nml
+  (NeuroML 2). Datos geométricos originales: WormBase Virtual Worm
+  (C. Grove & P. Sternberg, CalTech) — dominio público; conversión y
+  mantenimiento OpenWorm (repo MIT). Es la fuente más completa y fiable: 302
+  neuronas de nombres estándar con soma (x,y,z) en µm, 0 vacíos.
+- ARCHIVO COPIADO: /home/z/3d-data/c302_C_Full.net.nml (crudo, sin tocar).
+- CÓMO EXTRAER (neurona → x,y,z): parsear XML; por cada
+  <population id="NOMBRE" ...> ... <instance id="0">
+  <location x="…" y="…" z="…"/> → soma de NOMBRE en µm. Ejemplo real:
+      <population id="ADAL" component="GenericNeuronCell" size="1" type="populationList">
+            <instance id="0">
+                <location x="8.65" y="-239.25" z="31.050000000000001"/>
+  Excluir los 95 músculos (IDs MDL01…/MDR…/MVL…/MVR…; sus coordenadas son de
+  una rejilla genérica ±80, no reales). Ejes: +x izquierda, −y cabeza,
+  +z dorsal. Normalizar nombres del conectoma DA01…→DA1… (familias ventrales
+  de un dígito).
+- COBERTURA: 302/302 neuronas estándar con posición; 300/300 del conectoma
+  del proyecto (tras quitar el cero inicial); +CANL/CANR como extra.
+- CRÉDITO/LICENCIA sugerido en la UI: "Soma positions: WormBase Virtual Worm
+  (C. Grove & P. Sternberg, Caltech, public domain), via OpenWorm c302 (MIT)".
+  Paper del framework: Gleeson et al. 2018, doi:10.1098/rstb.2017.0379.
