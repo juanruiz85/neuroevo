@@ -824,6 +824,18 @@ export function getDrosophilaIndicesByGroup(
  * fondo neural calla y el escape visual (looming) produce la respuesta
  * nítida del circuito PR→DNs.
  */
+export function drosophilaForagerGenome(rng?: Rng): Float32Array {
+  const g = randomGenome(rng ?? new Rng())
+  // Mosca FORRAJADORA del terrario 3D: drive tónico por encima del umbral
+  // de locomoción (camina y explora buscando comida; el looming sigue
+  // disparando el escape por la fibra gigante).
+  g[G_TONIC] = 0.42
+  g[0] = 0.7
+  g[G_ACH] = 1.6
+  g[G_VTH] = 1.18
+  return g
+}
+
 export function drosophilaLabGenome(rng?: Rng): Float32Array {
   const g = randomGenome(rng ?? new Rng())
   // Mosca POSADA (como el animal del experimento de escape): el drive de

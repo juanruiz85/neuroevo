@@ -252,12 +252,23 @@ export class World {
       this.addFoodAt('sugar', this.width / 2, this.height / 2 + 140)
     }
     if (mode === 'neuro3d') {
-      // Terrario del modo 3D: mismo plato limpio que el Laboratorio
-      // (20 °C, luz estable), con una gota de azúcar de bienvenida al
-      // centro. La comida amarga y la silueta las coloca quien observa.
+      // Terrario del modo 3D: plato a 20 °C, luz estable y comida abundante
+      // repartida al azar (la densidad del ecosistema: la mosca localiza
+      // comida en sus vuelos de exploración — su lóbulo antenal no da señal
+      // de giro fiable, igual que en el mod de Minecraft real — mientras
+      // que el gusano quimiotaxea de verdad). El observador añade cebos
+      // amargos y siluetas.
       this.env.temperature = 20
       this.env.dayLength = 600
-      this.addFoodAt('sugar', this.width / 2, this.height / 2)
+      for (let i = 0; i < 16; i++) {
+        this.addFoodAt('fruit', this.rand(60, this.width - 60), this.rand(60, this.height - 60))
+      }
+      for (let i = 0; i < 14; i++) {
+        this.addFoodAt('detritus', this.rand(60, this.width - 60), this.rand(60, this.height - 60))
+      }
+      for (let i = 0; i < 14; i++) {
+        this.addFoodAt('sugar', this.rand(60, this.width - 60), this.rand(60, this.height - 60))
+      }
     }
   }
 
@@ -585,16 +596,26 @@ export class World {
             return
           }
           if (f.kind === 'bitter') {
-            // Prueba del cebo amargo (quinina/denatonio): castigo leve NO
-            // letal + aversión aprendida. Con refractario de degustación
-            // (1.2 s) para que una sola prueba cuente como una experiencia.
-            // El cebo NO se consume: queda para repetir el ensayo.
+            // Prueba del cebo amargo (quinina/denatonio): castigo + aversión
+            // aprendida. Con refractario de degustación (1.2 s) para que
+            // una sola prueba cuente como una experiencia. El cebo NO se
+            // consume: queda para repetir el ensayo.
+            // El daño decae con la aversión ya aprendida (retracción de
+            // probóscide real de las GRN amargas) y la primera prueba da
+            // un pequeño salto de rechazo que aparta al animal del cebo.
             if (c.bitterCd <= 0) {
               c.bitterCd = 1.2
               c.bitterFlash = 1
               c.bitesBitter++
+              c.energy += FOOD_INFO.bitter.energy * (1 - 0.85 * c.learnBad)
+              const bx = c.x - f.x
+              const by = c.y - f.y
+              const bd = Math.hypot(bx, by)
+              const ang = bd > 2 ? Math.atan2(by, bx) : c.heading + Math.PI / 2
+              const hop = 16 * (1 - 0.8 * c.learnBad)
+              c.x = clamp(c.x + Math.cos(ang) * hop, 12, this.width - 12)
+              c.y = clamp(c.y + Math.sin(ang) * hop, 12, this.height - 12)
               c.learnBad = Math.min(1, c.learnBad + 0.5)
-              c.energy += FOOD_INFO.bitter.energy
             }
             return
           }
@@ -623,12 +644,17 @@ export class World {
    * huevo sale por la vulva (segmento medio del cuerpo del gusano) o tras
    * el abdomen de la mosca, ya contiene el cerebro clonado+mutado
    * (autofecundación) y eclosionará según su especie.
+   *
+   * Devuelve true solo si el huevo entró al mundo
+   * entró al mundo: la caller (creature.tick) cobra el coste energético
+   * únicamente cuando la puesta ocurrió de verdad (en arena/lab/3D no
+   * hay reproducción y el circuito de puesta no gasta energía).
    */
-  layEgg(parent: Creature): void {
-    // En arena/laboratorio no hay reproducción: protocolo limpio.
-    if (this.mode !== 'ecosystem') return
+  layEgg(parent: Creature): boolean {
+    // En arena/laboratorio/3D no hay reproducción: protocolo limpio.
+    if (this.mode !== 'ecosystem') return false
     const cfg = SPECIES_CONFIG[parent.species]
-    if (this.counts[parent.species] + this.eggs.length >= cfg.popCap) return
+    if (this.counts[parent.species] + this.eggs.length >= cfg.popCap) return false
     const rng = this.rng
     const brain = parent.brain.clone()
     brain.mutate(rng, 0.1, 0.42)
@@ -666,6 +692,7 @@ export class World {
     parent.eggsLaid++
     parent.children++
     parent.laidFlash = 1
+    return true
   }
 
   spawnChild(parent: Creature): void {

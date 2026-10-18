@@ -51,7 +51,13 @@ export interface SimApi {
   arenaUndoWall: () => void
   arenaSetGoal: (g: ArenaGoal | null) => void
   arenaClear: () => void
-  spawnAt: (species: Species, kind: BrainKind, x: number, y: number) => Creature | null
+  spawnAt: (
+    species: Species,
+    kind: BrainKind,
+    x: number,
+    y: number,
+    genome?: Float32Array,
+  ) => Creature | null
   arenaStart: () => void
 }
 
@@ -292,8 +298,8 @@ export function useSimulation(): SimApi {
   }, [refresh])
 
   const spawnAt = useCallback(
-    (species: Species, kind: BrainKind, x: number, y: number) => {
-      const c = worldRef.current?.spawnAt(species, kind, x, y) ?? null
+    (species: Species, kind: BrainKind, x: number, y: number, genome?: Float32Array) => {
+      const c = worldRef.current?.spawnAt(species, kind, x, y, genome) ?? null
       refresh()
       return c
     },

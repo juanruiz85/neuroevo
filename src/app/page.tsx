@@ -32,6 +32,7 @@ import { StatsPanel } from '@/components/sim/stats-panel'
 import { MuseumPanel } from '@/components/sim/museum-panel'
 import { ArenaPanel } from '@/components/sim/arena-panel'
 import { LabPanel } from '@/components/sim/lab-panel'
+import { Neuro3DControls, Neuro3DScene } from '@/components/sim/neuro3d'
 import { useSimulation } from '@/components/sim/use-simulation'
 import type { Species } from '@/lib/sim/types'
 import { cn } from '@/lib/utils'
@@ -64,7 +65,11 @@ export default function Home() {
 
       <main className="mx-auto grid w-full max-w-[1800px] flex-1 grid-cols-1 gap-4 p-3 sm:p-4 lg:grid-cols-[minmax(0,1fr)_400px] lg:items-start">
         <Card className="relative h-[46vh] min-h-[320px] overflow-hidden p-0 lg:h-[calc(100vh-146px)]">
-          <SimCanvas sim={sim} onSelect={() => setTab('inspector')} />
+          {sim.mode === 'neuro3d' ? (
+            <Neuro3DScene sim={sim} />
+          ) : (
+            <SimCanvas sim={sim} onSelect={() => setTab('inspector')} />
+          )}
 
           {/* HUD en vivo */}
           <div className="pointer-events-none absolute inset-0 flex flex-col justify-between p-2.5">
@@ -109,16 +114,24 @@ export default function Home() {
             </div>
 
             <div className="flex items-end justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-background/70 px-2 py-1 backdrop-blur">
-                <Legend color="bg-zinc-400" label="Moscón" />
-                <Legend color="bg-emerald-400" label="Gusano" />
-                <Legend color="bg-red-500" label="Fruta" />
-                <Legend color="bg-stone-500" label="Detrito" />
-                <Legend color="bg-zinc-100" label="Azúcar" />
-                <Legend color="bg-violet-500" label="Veneno" />
-              </div>
+              {sim.mode === 'neuro3d' ? (
+                <span className="rounded-md bg-background/60 px-2 py-1 text-[10px] text-muted-foreground backdrop-blur">
+                  Arrastra para girar · rueda para acercar · clic coloca lo que elijas en el panel
+                </span>
+              ) : (
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg border bg-background/70 px-2 py-1 backdrop-blur">
+                  <Legend color="bg-zinc-400" label="Moscón" />
+                  <Legend color="bg-emerald-400" label="Gusano" />
+                  <Legend color="bg-red-500" label="Fruta" />
+                  <Legend color="bg-stone-500" label="Detrito" />
+                  <Legend color="bg-zinc-100" label="Azúcar" />
+                  <Legend color="bg-violet-500" label="Veneno" />
+                </div>
+              )}
               <span className="hidden rounded-md bg-background/60 px-2 py-1 text-[10px] text-muted-foreground backdrop-blur sm:block">
-                Haz clic en una criatura para inspeccionar su cerebro
+                {sim.mode === 'neuro3d'
+                  ? 'El holograma muestra cada pico real del cerebro del sujeto'
+                  : 'Haz clic en una criatura para inspeccionar su cerebro'}
               </span>
             </div>
           </div>
@@ -137,6 +150,8 @@ export default function Home() {
             <ArenaPanel sim={sim} />
           ) : sim.mode === 'lab' ? (
             <LabPanel sim={sim} />
+          ) : sim.mode === 'neuro3d' ? (
+            <Neuro3DControls sim={sim} />
           ) : (
             <Tabs value={tab} onValueChange={setTab} className="w-full">
               <TabsList className="grid w-full grid-cols-4">

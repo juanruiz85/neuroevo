@@ -6,6 +6,7 @@
 import { useTheme } from 'next-themes'
 import {
   Baby,
+  Box,
   Bug,
   Dna,
   FlaskConical,
@@ -43,6 +44,7 @@ const MODES: { key: SimMode; label: string; short: string; icon: typeof Dna }[] 
   { key: 'ecosystem', label: 'Ecosistema — evolución libre con clima', short: 'Ecosistema', icon: Dna },
   { key: 'arena', label: 'Retos — construye laberintos y cronometra', short: 'Retos', icon: Trophy },
   { key: 'lab', label: 'Laboratorio — estímulos, knockouts y trazas', short: 'Laboratorio', icon: FlaskConical },
+  { key: 'neuro3d', label: '3D — cuerpo y cerebro en vivo (anatomía real)', short: '3D', icon: Box },
 ]
 
 export function SimHeader({ sim }: { sim: SimApi }) {

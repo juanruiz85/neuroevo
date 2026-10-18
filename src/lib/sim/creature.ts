@@ -366,17 +366,20 @@ export class Creature {
     } else if (this.brain.kind === 'drosophila') {
       // Mosca biológica: puesta de huevos SOLO cuando el pool DN-SEZ
       // (descendentes viscerales/oviposición) dispara la salida motora.
+      // El coste energético se paga SOLO si el huevo se puso de verdad
+      // (en arena/lab/3D no hay reproducción y el circuito no gasta).
       this.layCd -= dt
       if (
         this.energy > cfg.reproMinEnergy - 8 &&
         this.brain.oA[2] > 0.55 &&
         this.layCd <= 0
       ) {
-        world.layEgg(this)
-        this.energy -= cfg.reproCost
-        this.children++
+        if (world.layEgg(this)) {
+          this.energy -= cfg.reproCost
+          this.children++
+          this.laidFlash = 1
+        }
         this.layCd = 2
-        this.laidFlash = 1
       }
       if (this.age > cfg.maxAge) this.alive = false
     } else {
