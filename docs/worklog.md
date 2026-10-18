@@ -1256,3 +1256,21 @@ Stage Summary:
   v1.0 CC BY 4.0, fly-brain-minecraft MIT), interacción por clic
   (comida buena/amarga/silueta/golpe/chorro) y aprendizaje por valor
   observable en barras y en el holograma. Bancos: 3D 28/28 + Fase 2 33/33.
+
+---
+Task ID: 19-bis
+Agent: main (Z.ai Code)
+Task: Publicación y verificación E2E de v1.4.0 en producción.
+
+Work Log:
+- Tag v1.4.0 → push → workflow «Deploy a GitHub Pages» SUCCESS.
+- Release v1.4.0 creada con asset (sitio compilado .zip).
+- E2E en https://juanruiz85.github.io/neuroevo/: pestaña «3D» presente
+  tras Laboratorio; soltar mosca → cuerpo voxelar ámbar con anillo de
+  selección + nube cerebral por regiones (cian/blanco/lime/magenta
+  confirmados por VLM) con etiquetas; soltar gusano → cuerpo segmentado +
+  sistema nervioso flotante con etiquetas AVA/AVB/ALM legibles; clic coloca
+  el cebo amargo (cubo oliva visible). Todo en el build estático real.
+
+Stage Summary:
+- v1.4.0 EN VIVO y verificada de punta a punta en producción.
