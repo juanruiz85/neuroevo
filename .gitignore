@@ -48,3 +48,4 @@ Thumbs.db
 /.z-ai-config
 prompt
 agent-ctx/
+tool-results/
