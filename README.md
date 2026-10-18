@@ -93,24 +93,34 @@ observar (y documentar) cómo evoluciona cada especie para adaptarse.
   meta, fruta, veneno), suelta gusanos o moscas con conectoma real o ANN de
   control, cronómetro de ensayo, desenlaces con causa y **récords
   persistentes**.
-- 🧊 **Modo 3D — cuerpo y cerebro en vivo (v1.4.1)**: terrario 3D con la
+- 🧊 **Modo 3D — cuerpo y cerebro en vivo (v1.4.2)**: terrario 3D con la
   **mosca voxelar de diseño propio** (proporciones y paleta originales de
   NeuroEvo, inspiradas en *D. melanogaster* real: quetas, ocelos, alas que
   se pliegan) y el **gusano con sus 302 neuronas en posición somática real
   dentro del cuerpo** (WormBase Virtual Worm). El holograma flotante muestra
-  el cerebro disparando en vivo: en la mosca, la **nube del CNS adulto
+  el cerebro disparando en vivo, y el de la mosca tiene ahora **sus dos
+  etapas reales**: **Larva** (por defecto) dibuja el conectoma larvario que
+  simula el motor (Winding 2023) **neurona a neurona — 2.956 puntos**, cada
+  uno con su voltaje LIF propio, sobre su neuroanatomía larvaria canónica
+  (lóbulos antenales, cuerpos fungiformes, cuernos laterales, SEZ, órganos
+  sensoriales de la cabeza, conectivo cervical y cordón ventral de 11
+  neuromeros T1–T3 + A1–A8); **Adulta** muestra la **nube del CNS adulto
   masculino completo** (141.781 somas reales, Berg 2026 → 15.001 vóxeles,
-  CC BY 4.0) con la actividad de los 29 grupos larvarios proyectada sobre
-  sus familias adultas homólogas; en el gusano, los **302 somas reales**
-  con **solo los puntos que se activan brillando** — como la mosca — sobre
-  el andamio neuroanatómico real (**anillo nervioso circunfaríngeo +
-  cordones ventral y dorsal**), donde cada tracto se ilumina con la
-  actividad media de las neuronas que lo forman. Coloca comida buena y
+  CC BY 4.0) con los 29 grupos larvarios proyectados sobre sus familias
+  adultas homólogas y un **andamio derivado de la propia nube** (tractos
+  ópticos, nervios antenales, probóscide, conectivo, eje del cordón). El
+  gusano conserva sus **302 somas reales** con **solo los puntos que se
+  activan brillando** sobre el andamio neuroanatómico real (**anillo
+  nervioso + cordones ventral y dorsal**) y estrena **andamio sensorial**:
+  poros y tractos de los **anfídios** y **fasmas**, los 6 receptores de
+  **tacto** (ALM/PLM/AVM/PVM) y **PVD** (nocicepción), cada uno iluminado
+  por el voltaje real de sus neuronas. Coloca comida buena y
   **cebos amargos** (quinina) con clic, dispara la **silueta de depredador**
   (looming → escape por fibra gigante) y observa el **aprendizaje por
   valor**: la recompensa refuerza la atracción y el castigo reescribe la
   valencia del olor (NSM/serotonina · RIM/tiramina · DAN→MBON) — con barras
-  en vivo y extinción lenta. Banco de 40 pruebas: docs/MODO-3D.md.
+  en vivo y extinción lenta. Banco de 40 pruebas + E2E con visión:
+  docs/MODO-3D.md.
 - 💾 **Cerebros portátiles**: exporta cualquier cerebro (inspector o Museo)
   como `.neuroevo.json` — arquitectura + genoma + rasgos — e impórtalo para
   sembrar 8 individuos en cualquier simulación.

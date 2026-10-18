@@ -1,5 +1,71 @@
 # Changelog
 
+## 1.4.2 — El cerebro de la mosca en sus dos etapas + sistema sensorial
+
+### 🐛 Correcciones
+- **El cerebro de la mosca ya no aparece al arrancar**: el conmutador del
+  holograma solo montaba el del gusano o el de la mosca según la especie,
+  pero sin sujeto seleccionado caía en la rama «mosca» y la nube del CNS
+  adulto se veía desde el primer segundo del modo 3D. Ahora **solo se
+  dibuja el cerebro del sujeto seleccionado** (gusano → gusano, mosca →
+  larva/adulta, nada → nada).
+- **CNS adulto recentrado en su línea media real**: la nube venía
+  descentrada de la parrilla normalizada (línea media L-R a x=−3,65,
+  rango D-V desplazado −5,05 — medido sobre los 15.001 vóxeles reales);
+  tras el recentrado el cordón ventral cae en x=0 y el holograma queda
+  **centrado sobre el plato**.
+
+### 🪰 Mosca: dos etapas, dos datasets reales (conmutables en el panel)
+- **Drosophila Larva (por defecto)**: el conectoma larvario real que el
+  motor simula (Winding et al. 2023) dibujado **neurona a neurona** —
+  **2.956 puntos**, cada uno brillando con **su voltaje LIF propio**, en
+  el lenguaje visual del gusano (capa de anatomía tenue por grupo + capa
+  de actividad aditiva con umbral sobre el reposo).
+  - **Andamio canónico de la larva** (Berck 2016 · Eichler 2017 · Eschbach
+    2020/21): lóbulos antenales, **cuerpos fungiformes** completos
+    (cálices → pedúnculos → lóbulos vertical y medial), cuernos laterales,
+    **SEZ**, neuropilos ópticos larvarios, glándula del anillo.
+  - **Sistema sensorial cefálico real**: órgano dorsal (olfato/termo/higró)
+    con su nervio antenal → lóbulo antenal, **órganos de Bolwig**
+    (fotorreceptores) con el nervio de Bolwig → neuropilo óptico, órgano
+    terminal (gusto) → SEZ y órgano faríngeo → SEZ.
+  - **Conectivo cervical** + **cordón ventral de 11 neuromeros**
+    (T1–T3 + A1–A8) con **nervios segmentarios** a la pared del cuerpo.
+  - Cada tracto y cada marcador de región se ilumina con la **media real**
+    de sus grupos (ORN el nervio antenal, KC los pedúnculos, MBON/MBIN los
+    lóbulos, ASC el eje del VNC…). Misma escala µm que el gusano; cabeza
+    a la izquierda; título «D. melanogaster · larva».
+- **Drosophila Adulta**: la nube del CNS adulto masculino (Berg 2026)
+  con los 29 grupos larvarios proyectados, y ahora además:
+  - **Andamio derivado de la propia nube**: **tractos ópticos**
+    (centroides reales de los lóbulos ópticos L/R → cerebro central),
+    **nervios antenales** y **probóscide** (hacia el lóbulo antenal y la
+    SEZ), **conectivo cervical** y **eje del cordón ventral** trazado con
+    bines sobre los vóxeles reales.
+  - **Marcadores de órganos sensoriales** (antenas ×2, probóscide,
+    retinas ×2) que se encienden con la actividad real de ORN/GRN/PR.
+  - 9 **etiquetas con líneas guía en abanico** (como el gusano) y título
+    «D. melanogaster · adulto ♂».
+
+### 🪱 Gusano: andamio sensorial
+- **Anfídios** (los 14 canales quimio/termosensoriales de la cabeza:
+  AWA–AWC, ASE, AFD, ASH, ASG–ASK, ADL, BAG + AQR): poros en la punta de
+  la nariz + tractos dendríticos hasta el anillo, iluminados con la media
+  real de sus neuronas.
+- **Fasmas** (PHA/PHB, quimiosensores de la cola): poros + tractos.
+- **Tacto** (los 6 receptores de microtúbulos): los procesos largos
+  sublaterales de ALML/R, PLML/R, AVM y PVM recorren la pared del cuerpo
+  y **cada línea brilla con el voltaje individual de su neurona**.
+- **PVD** (nocicepción, la neurona «árbol de Navidad»): procesos laterales
+  cabeza-cola con su voltaje real.
+- 4 etiquetas sensoriales (Anfídios · Fasmas · Tacto · Nocicepción) y
+  título «C. elegans · hermafrodita».
+
+### 📚 Documentación
+- `docs/MODO-3D.md`: §1 (tabla con las dos etapas), §2.2 (dos datasets),
+  §5.9–5.11 (nuevas simplificaciones declaradas), §6.3 (E2E v1.4.2), §8
+  (estructura con `larva.ts`). README y CHANGELOG actualizados.
+
 ## 1.4.1 — Modo 3D pulido: anillo nervioso, mosca propia y fix del gusano
 
 ### 🐛 Correcciones

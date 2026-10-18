@@ -129,10 +129,20 @@ export const FLY_3D = decodeFly()
  * (descendentes en z bajo, cordón en z alto), y = dorso-ventral.
  * El holograma se pone DE PIE: cerebro arriba, cordón colgando —
  * como el build de bloques de Minecraft del que provienen los datos.
+ *
+ * CENTRADO REAL: la nube no está centrada en la parrilla normalizada —
+ * la línea media L-R medida sobre los vóxeles de los lóbulos ópticos
+ * queda en x = −3,65 y el rango D-V ocupa z ∈ [−10,2, 0,1] (mediana
+ * −5,05). Ambas constantes (medias sobre los 15.001 vóxeles reales)
+ * recentran el CNS de modo que el cordón ventral cae en x = 0.
  */
 const SPAN = [91200, 64238, 124377] as const
 const HOLO_H = 40 // unidades de alto del holograma
 const S = HOLO_H / SPAN[2]
+/** Línea media L-R de la nube real (media de los centroides OL_L/OL_R). */
+const FLY_MID_X = 3.65
+/** Mediana del rango D-V ocupado por la nube real. */
+const FLY_MID_Z = 5.05
 
 export function flyHoloPos(xn: number, yn: number, zn: number): [number, number, number] {
   // posN llega normalizado a [0, 32767] → fracción [0,1] → tamaño real.
@@ -140,9 +150,9 @@ export function flyHoloPos(xn: number, yn: number, zn: number): [number, number,
   const fy = (yn / 32767) * SPAN[1] * S
   const fz = (zn / 32767) * SPAN[2] * S
   return [
-    fx - (SPAN[0] * S) / 2, // x: L-R centrado
+    fx - (SPAN[0] * S) / 2 + FLY_MID_X, // x: L-R centrado en la línea media real
     (SPAN[2] * S) / 2 - fz, // y: cerebro (z bajo) arriba, centrado en 0
-    fy - (SPAN[1] * S) / 2, // z: D-V como profundidad
+    fy - (SPAN[1] * S) / 2 + FLY_MID_Z, // z: D-V centrado
   ]
 }
 
@@ -378,6 +388,111 @@ export const WORM_DCC_TRACT: WormTract = (() => {
 /** Índice de una neurona por nombre (para etiquetas). */
 export const wormIdx = (name: string) => ELEGANS_NAMES.indexOf(name)
 
+// ───────── sistema sensorial del gusano (holograma) ─────────────────────────
+//
+// La neuroanatomía canónica del sistema sensorial (WormAtlas,
+// neuronsandcircuits.html): los anfídios (cabeza) y fasmas (cola) son los
+// principales órganos quimio/termosensoriales; el tacto lo median 6
+// receptores con procesos sublaterales largos (ALM/AVM/PLM/PVM) y la
+// nocicepción corporal PVD («árbol de Navidad» de la pared del cuerpo).
+// Cada tracto brilla con la actividad REAL de las neuronas que lo inervan;
+// el trazado sublateral de los procesos es una aproximación declarada.
+
+/** Canales anfidiales presentes en el conectoma (AWA–AWC, ASE, AFD, ASH,
+ *  ASG–ASK, ADL, BAG + AQR — 25 neuronas con sinapsis). */
+const AMPHID_RE = /^(AWA|AWB|AWC|ASE|AFD|ASH|ASG|ASI|ASJ|ASK|ADL|BAG)[LR]$|^AQR$/
+
+/** Índices act de las neuronas anfidiales (derivado del conectoma real). */
+const amphidIdx = ELEGANS_NAMES.flatMap((n, i) => (AMPHID_RE.test(n) ? [i] : []))
+/** Índices act de los fasmas (PHA/PHB L/R). */
+const phasmidIdx = ELEGANS_NAMES.flatMap((n, i) => /^PH[AB][LR]$/.test(n) ? [i] : [])
+
+export interface SensoryTractW {
+  /** Polilínea en µm (poro → banda somática → anillo). */
+  ptsUm: [number, number, number][]
+  /** Índices act de las neuronas cuya actividad media ilumina el tracto. */
+  neurons: number[]
+}
+
+/**
+ * Anfídios: el poro se abre en la punta de la nariz (lateral); el dendrito
+ * corre anterior→posterior hasta la banda somática y el axón entra al anillo
+ * nervioso. Poro = continuación anterior del grupo somático real (medias:
+ * L (+4,0 −266,7 +43,2), R (−8,8 −264,9 +42,5) µm); nariz a y≈−308 (I1/I2).
+ */
+export const WORM_AMPHID_TRACTS: SensoryTractW[] = [
+  {
+    ptsUm: [[3.5, -306, 50], [4.0, -266, 43], [-1.4, -219, -22]],
+    neurons: amphidIdx,
+  },
+  {
+    ptsUm: [[-8.0, -306, 50], [-8.8, -264, 42], [-1.4, -219, -22]],
+    neurons: amphidIdx,
+  },
+]
+
+/**
+ * Fasmas: órganos quimiosensoriales gemelos de la cola (PHA gustativo,
+ * PHB olfativo). Somas reales a y≈403–406 µm; poro en la punta (y≈410).
+ */
+export const WORM_PHASMID_TRACTS: SensoryTractW[] = [
+  {
+    ptsUm: [[7.0, 408, 7], [1.8, 404, 5], [0, 380, 2]],
+    neurons: phasmidIdx,
+  },
+  {
+    ptsUm: [[-8.0, 408, 7], [-3.7, 404, 5], [0, 380, 2]],
+    neurons: phasmidIdx,
+  },
+]
+
+/** Poros sensoriales dibujados como marcadores (µm). */
+export const WORM_SENSORY_PORES: { pos: [number, number, number]; neurons: number[] }[] = [
+  ...WORM_AMPHID_TRACTS.map((t) => ({ pos: t.ptsUm[0], neurons: t.neurons })),
+  ...WORM_PHASMID_TRACTS.map((t) => ({ pos: t.ptsUm[0], neurons: t.neurons })),
+]
+
+export interface TouchLineW {
+  name: string
+  /** Índice act de la neurona (su voltaje ilumina TODO el proceso). */
+  act: number
+  /** Proceso sublateral en µm: [inicio, fin] en la pared del cuerpo. */
+  ptsUm: [[number, number, number], [number, number, number]]
+}
+
+/**
+ * Los 6 receptores de tacto suave (microtúbulos, Chalfie et al. 1986):
+ * sus procesos largos corren por la pared sublateral del cuerpo — ALM
+ * (anterior, hacia atrás), PLM (posterior, hacia delante), AVM/PVM
+ * (ventrales, hacia delante). Brillo = voltaje REAL de cada neurona.
+ */
+export const WORM_TOUCH_LINES: TouchLineW[] = [
+  { name: 'ALML', act: wormIdx('ALML'), ptsUm: [[28, -58, -33], [28, 120, -33]] },
+  { name: 'ALMR', act: wormIdx('ALMR'), ptsUm: [[-29, -58, -33], [-29, 120, -33]] },
+  { name: 'AVM', act: wormIdx('AVM'), ptsUm: [[-28, -52, -42], [-28, -140, -42]] },
+  { name: 'PVM', act: wormIdx('PVM'), ptsUm: [[28, 185, 21], [28, 30, 21]] },
+  { name: 'PLML', act: wormIdx('PLML'), ptsUm: [[28, 405, 8], [28, 160, 8]] },
+  { name: 'PLMR', act: wormIdx('PLMR'), ptsUm: [[-29, 405, 8], [-29, 160, 8]] },
+]
+
+/**
+ * PVD (nocicepción, mecano-térmica dura): la neurona «árbol de Navidad»
+ * cuya dendrita cubre toda la pared lateral del cuerpo. Brillo = voltaje
+ * real de PVDL/PVDR.
+ */
+export const WORM_PVD_LINES: TouchLineW[] = [
+  { name: 'PVDL', act: wormIdx('PVDL'), ptsUm: [[30, -110, 26], [30, 395, 26]] },
+  { name: 'PVDR', act: wormIdx('PVDR'), ptsUm: [[-30, -110, 26], [-30, 395, 26]] },
+]
+
+/** Etiquetas del sistema sensorial (coordenadas del holograma). */
+export const WORM_SENSORY_LABELS: { title: string; desc: string; at: [number, number, number] }[] = [
+  { title: 'Anfídios', desc: 'quimio + termo (14 canales)', at: [-21.5, 3.4, 1.5] },
+  { title: 'Fasmas', desc: 'quimiosensor (cola)', at: [23.5, 1.6, 1.5] },
+  { title: 'Tacto', desc: 'ALM/PLM/AVM/PVM', at: [2.5, 3.2, 1.2] },
+  { title: 'Nocicepción', desc: 'PVD (pared del cuerpo)', at: [4.5, -2.6, 1.2] },
+]
+
 /** Grupos larvarios de Drosophila con etiqueta en el holograma. */
 export const FLY_LABEL_GROUPS = [
   'ORN', 'GRN', 'PR', 'KC', 'MBON', 'MBIN', 'DNV', 'ASC', 'LHN', 'CN',
@@ -393,4 +508,110 @@ export const WORM_LABELS: { name: string; desc: string }[] = [
   { name: 'HSN', desc: 'puesta de huevos' },
   { name: 'AVB', desc: 'avance' },
   { name: 'DVA', desc: 'propiocepción' },
+]
+
+// ─────── andamio del CNS ADULTO de la mosca (holograma) ─────────────────────
+//
+// Los puntos de control se DERIVAN de la nube real de 15.001 vóxeles
+// (centroides por clase y bines del eje del cordón ventral), con el
+// recentrado FLY_MID_X/Z aplicado. La actividad que ilumina cada tracto es
+// la media REAL de los grupos larvarios homólogos que lo forman:
+//   nervio antenal ← ORN · probóscide ← GRN/MEC · tracto óptico ← PR ·
+//   conectivo cervical + eje del VNC ← DNV/DNS/pDNV/pDNS + ASC.
+// Neuroanatomía adulta de referencia: Ito et al. 2014; Scheffer et al. 2020;
+// male-cns:v1.0 (Berg et al. 2026).
+
+export interface AdultNerve {
+  key: string
+  /** Polilínea en coordenadas del holograma (recentradas). */
+  pts: [number, number, number][]
+  /** Grupos larvarios cuya media de actividad ilumina el nervio. */
+  groups: string[]
+}
+
+export interface AdultOrgan {
+  key: string
+  pos: [number, number, number]
+  r: number
+  groups: string[]
+}
+
+/** Centroides reales derivados de la nube (ver comentario de cabecera). */
+export const FLY_ADULT_NERVES: AdultNerve[] = [
+  // nervios antenales (×2): antena → lóbulo antenal (ancla PN)
+  {
+    key: 'antL',
+    pts: [[0.2, 24.2, 3.0], [1.2, 21.5, 3.0], [2.4, 19.2, 3.0]],
+    groups: ['ORN'],
+  },
+  {
+    key: 'antR',
+    pts: [[7.3, 24.2, 3.0], [6.3, 21.5, 3.0], [5.1, 19.2, 3.0]],
+    groups: ['ORN'],
+  },
+  // probóscide (gusto): labello → zona subesofágica (ancla GRN/MEC)
+  {
+    key: 'prob',
+    pts: [[3.5, 23.2, 8.6], [3.5, 20.2, 6.6], [3.45, 17.6, 4.9]],
+    groups: ['GRN', 'GNP', 'MEC'],
+  },
+  // tractos ópticos (×2): lámina/medulla → cerebro central (centroide cb)
+  {
+    key: 'optL',
+    pts: [[-7.6, 12.7, -0.4], [-4.4, 13.9, -1.3], [-0.8, 15.0, -2.2]],
+    groups: ['PR'],
+  },
+  {
+    key: 'optR',
+    pts: [[7.6, 13.0, -0.9], [4.4, 14.1, -1.6], [0.4, 15.0, -2.2]],
+    groups: ['PR'],
+  },
+  // conectivo cervical: cerebro → cordón ventral
+  {
+    key: 'cc',
+    pts: [[0.0, 9.2, 2.9], [0.05, 5.2, 3.2], [0.1, 1.2, 3.4]],
+    groups: ['DNV', 'DNS', 'pDNV', 'pDNS', 'ASC'],
+  },
+  // eje del cordón ventral: bines reales de los vóxeles 'vnc' (9 puntos)
+  {
+    key: 'vnc',
+    pts: [
+      [0.12, 1.0, 3.5], [0.08, -1.2, 3.63], [-0.45, -3.46, 3.22],
+      [-0.07, -5.34, 3.39], [0.18, -8.39, 3.16], [-0.07, -10.67, 3.42],
+      [0.36, -13.93, 2.58], [0.05, -16.11, 2.48], [0.22, -17.92, 2.51],
+    ],
+    groups: ['ASC', 'DNV', 'DNS', 'pDNV', 'pDNS'],
+  },
+]
+
+/** Órganos sensoriales periféricos del adulto (marcadores). */
+export const FLY_ADULT_ORGANS: AdultOrgan[] = [
+  { key: 'antL', pos: [0.2, 24.2, 3.0], r: 1.05, groups: ['ORN'] },
+  { key: 'antR', pos: [7.3, 24.2, 3.0], r: 1.05, groups: ['ORN'] },
+  { key: 'prob', pos: [3.5, 23.2, 8.6], r: 1.15, groups: ['GRN', 'GNP'] },
+  { key: 'retL', pos: [-12.1, 12.7, -0.4], r: 1.35, groups: ['PR'] },
+  { key: 'retR', pos: [12.1, 13.0, -0.9], r: 1.35, groups: ['PR'] },
+]
+
+/** Título del holograma adulto (sprite sobre la escena). */
+export const FLY_ADULT_TITLE = 'D. melanogaster · adulto ♂'
+/** Subtítulo del holograma adulto. */
+export const FLY_ADULT_SUB = 'CNS real · 141.781 somas (Berg 2026)'
+
+/** Etiquetas con líneas guía del adulto (abanico, como el gusano). */
+export const FLY_ADULT_CALLOUTS: {
+  title: string
+  desc: string
+  from: [number, number, number]
+  to: [number, number, number]
+}[] = [
+  { title: 'ORN', desc: 'olfato (antena)', from: [0.2, 24.2, 3.0], to: [-8.5, 25.5, 3.0] },
+  { title: 'GRN', desc: 'gusto (probóscide)', from: [3.5, 23.2, 8.6], to: [10.5, 26.5, 8.6] },
+  { title: 'PR', desc: 'visión (ojo compuesto)', from: [-12.1, 12.7, -0.4], to: [-17.5, 16.5, -0.4] },
+  { title: 'KC', desc: 'memoria (cuerpo fungiforme)', from: [3.55, 12.4, -3.25], to: [12.5, 8.5, -3.25] },
+  { title: 'MBON', desc: 'salida del MB', from: [3.65, 16.1, -1.25], to: [13.0, 12.0, -1.25] },
+  { title: 'LHN', desc: 'innato (cuerno lateral)', from: [3.75, 14.5, -1.75], to: [14.0, 5.5, -1.75] },
+  { title: 'CN', desc: 'orientación (cuerpo central)', from: [3.65, 13.9, -1.75], to: [-14.5, 6.0, -1.75] },
+  { title: 'DNV', desc: 'descendentes', from: [0.05, 5.2, 3.2], to: [-13.5, -0.5, 3.2] },
+  { title: 'ASC', desc: 'cordón ventral', from: [0.1, -10.0, 3.3], to: [-14.0, -14.5, 3.3] },
 ]

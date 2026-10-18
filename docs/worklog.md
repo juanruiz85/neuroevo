@@ -1346,3 +1346,66 @@ Stage Summary:
   sobre el andamio neuroanatómico canónico (anillo + cordones) derivado
   de los somas reales, con cada tracto iluminado por sus neuronas reales.
   40/40 + E2E con visión + móvil verificados. Listo para tag v1.4.1.
+
+---
+Task ID: 21
+Agent: main (Z.ai Code)
+Task: v1.4.2 — el cerebro de la mosca en sus dos etapas (Larva/Adulta),
+mejora de la representación cerebral y sensorial de ambos organismos y fix
+del holograma de la mosca al arrancar.
+
+Work Log:
+- FIX 1 (bug del usuario): el conmutador del holograma en `scene.tsx` caía
+  en la rama «mosca» cuando no había sujeto → la nube del CNS adulto se
+  veía desde el arranque. Ahora solo se monta el holograma de la especie
+  seleccionada (gusano / mosca / nada).
+- FIX 2 (calidad): `flyHoloPos` recentrado en la línea media REAL de la
+  nube (x +3,65 = media de los centroides OL L/R; z +5,05 = mediana D-V,
+  medidos sobre los 15.001 vóxeles) — el cordón ventral cae en x=0 y el
+  CNS queda centrado sobre el plato.
+- NUEVO `larva.ts`: layout canónico del CNS LARVARIO (Berck 2016, Eichler
+  2017, Eschbach 2020/21) — posición determinista (jitter sembrado) de
+  cada una de las 2.956 neuronas dentro de la región real de su grupo
+  (órgano dorsal/Bolwig/terminal/faríngeo, AL, cálices/pedúnculos/lóbulos
+  del MB, LH, núcleo, VNC por neuromero, pared del cuerpo, intestino para
+  GUT) + nervios sensoriales + conectivo + VNC de 11 neuromeros con
+  nervios segmentarios + marcadores de regiones/órganos + callouts.
+- `brain-hologram.tsx` reescrito con TRES hologramas:
+  · FlyLarvaHologram (nuevo, por defecto): 2.956 puntos por neurona con
+    voltaje LIF individual (mismo lenguaje del gusano) + andamio/marcadores
+    iluminados por la media real de sus grupos + título.
+  · FlyHologram (adulta): nube + anclajes + NUEVO andamio derivado de la
+    nube (tractos ópticos OL→cb, nervios antenales, probóscide, conectivo
+    cervical, eje del VNC por bines reales) + marcadores de órganos
+    (antenas/probóscide/retinas) + 9 callouts con guía + título «adulto ♂».
+  · WormHologram: andamio SENSORIAL nuevo — poros+tractos de anfídios
+    (25 neuronas reales: AWA–AWC/ASE/AFD/ASH/ASG–ASK/ADL/BAG/AQR) y fasmas
+    (PHA/PHB), 6 procesos sublaterales de tacto (ALM/PLM/AVM/PVM) y 2 de
+    PVD, cada línea con el voltaje INDIVIDUAL de su neurona; 4 etiquetas
+    sensoriales + título «hermafrodita».
+- `store.ts`: estado `flyStage` ('larva'|'adult', por defecto larva).
+- `panel.tsx`: selector de etapa (dos botones con dataset y cita), textos
+  por etapa, leyenda de grupos larvarios (con recuento real), procedencia
+  actualizada (larva/adulta separadas), chip de sujeto «Drosophila LARVA».
+- Limpio (0 errores lint), GET / 200, consola limpia.
+- E2E con agent-browser + modelo de visión: arranque sin sujeto →
+  `any_hologram_or_floating_cloud: false` (bug arreglado, verificado);
+  larva → horizontal cabeza-izquierda, nube densa, cordón segmentado,
+  órganos sensoriales, título «D. melanogaster · larva», many glow;
+  adulta → erguida, nube por regiones, andamio visible, callouts legibles,
+  centrada, título «adulto ♂»; gusano → poros de anfídios/fasmas, líneas
+  sublaterales de tacto, etiquetas leídas; azúcar junto a la mosca →
+  `head_end_glow: strong`; móvil 375×812 sin overflow.
+- Docs: MODO-3D.md (§1 dos etapas, §2.2 dos datasets, §5.9–5.11 nuevas
+  simplificaciones declaradas, §6.3 E2E, §8 estructura con larva.ts),
+  CHANGELOG 1.4.2, README, package.json 1.4.2.
+
+Stage Summary:
+- v1.4.2: el cerebro de la mosca usa ahora sus DOS etapas con datasets
+  reales distintos — Larva (por defecto; el conectoma Winding 2023 dibujado
+  neurona a neurona sobre su neuroanatomía larvaria canónica) y Adulta
+  (la nube Berg 2026 + andamio derivado de la propia nube) — conmutables
+  desde el panel. El gusano estrena andamio sensorial completo (anfídios,
+  fasmas, tacto, PVD) y ambos hologramas llevan título con cita. El bug
+  del cerebro de mosca al arrancar está arreglado y verificado por visión.
+  Listo para tag v1.4.2.

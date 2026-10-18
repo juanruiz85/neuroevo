@@ -1,10 +1,11 @@
 # Modo 3D — Cuerpo y cerebro en vivo
 
-> **Versión 1.4.1.** Pestaña «3D» del selector de modos (tras «Laboratorio»).
+> **Versión 1.4.2.** Pestaña «3D» del selector de modos (tras «Laboratorio»).
 > Un terrario 3D donde sueltas un gusano o una mosca, ves su **cuerpo
 > anatómico real** y su **cerebro disparando en vivo**, le colocas comida
 > (buena y amarga), siluetas de depredador y estímulos, y observas cómo
-> **aprende**.
+> **aprende**. El cerebro de la mosca tiene ahora sus **dos etapas**
+> (Larva / Adulta) con datasets reales distintos.
 
 ---
 
@@ -14,7 +15,9 @@
 |---|---|---|
 | **Cuerpo** | Cadena de cápsulas siguiendo los 8 segmentos reales del motor (ondulación en vivo), semitransparente | **Diseño voxelar propio** (v1.4.1, sin copiar el mod): ojos compuestos rojos dominantes + triángulo ocelar, cérvix, tórax ocre con quetas dorsocentrales/escutelares y escutelo, tergitos decrecientes con punta negra del macho, alas plegadas en reposo, halterios pedunculados, 6 patas caminantes |
 | **Neuronas dentro** | Las **302 neuronas en sus posiciones somáticas reales** (µm), coloreadas por su voltaje LIF del tick actual | — (el cerebro de la mosca está en la cabeza; se magnifica arriba) |
-| **Holograma** | El sistema nervioso completo en disposición anatómica real, cabeza a la izquierda (v1.4.1, inclinado 34° para ver el anillo en escorzo): **capa de anatomía** con los **302 somas reales** tenues por clase (300 del conectoma + CANL/CANR) y **capa de actividad** con blend aditivo — **solo los puntos que se disparan brillan**, con el mismo lenguaje visual que el cerebro de la mosca. En vez de las 4.731 sinapsis dibujadas (el «ovillo» de la v1.4.0), el **andamio neuroanatómico canónico**: anillo nervioso circunfaríngeo (torus blanquecino) + cordón ventral (medias locales de los somas motores reales) + cordón dorsal; **cada tracto se ilumina con la actividad media real de las neuronas que lo forman**. 8 neuronas célebres etiquetadas (AVA, ASE, AFD, ASH, ALM, HSN, AVB, DVA) en abanico con líneas guía | La **nube voxelar del CNS adulto masculino** (141.781 somas reales → 15.001 celdas deduplicadas por rejilla, el mismo método del build de bloques de Minecraft) coloreada por región; sobre ella, la actividad de los **29 grupos larvarios** que simula el motor, proyectada en sus familias adultas homólogas |
+| **Holograma** | El sistema nervioso completo en disposición anatómica real, cabeza a la izquierda (inclinado 34° para ver el anillo en escorzo): **capa de anatomía** con los **302 somas reales** tenues por clase (300 del conectoma + CANL/CANR) y **capa de actividad** con blend aditivo — **solo los puntos que se disparan brillan**. Andamio central: anillo nervioso circunfaríngeo (torus blanquecino) + cordones ventral/dorsal, **cada tracto iluminado por la actividad media real de sus neuronas**. Andamio **sensorial** (v1.4.2): poros y tractos de los **anfídios** (14 canales quimio/termo) y los **fasmas** de la cola, los 6 receptores de **tacto** (ALM/PLM/AVM/PVM, procesos sublaterales que recorren la pared del cuerpo) y **PVD** (nocicepción) — cada uno brilla con el voltaje real de sus neuronas. 8 neuronas célebres en abanico + 4 etiquetas sensoriales + título | **Dos etapas reales** (v1.4.2, conmutables en el panel):
+· **LARVA** (por defecto): el conectoma larvario real que simula el motor (Winding 2023) dibujado **neurona a neurona** — **2.956 puntos**, cada uno con su voltaje LIF propio, en su neuroanatomía larvaria canónica (lóbulos antenales, cuerpos fungiformes cálices→pedúnculos→lóbulos, cuernos laterales, SEZ, órgano dorsal/Bolwig/terminal/faríngeo, conectivo cervical y **VNC de 11 neuromeros** T1–T3+A1–A8 con nervios segmentarios). Misma escala µm que el gusano, cabeza a la izquierda
+· **ADULTA**: la nube voxelar del CNS adulto masculino (141.781 somas → 15.001 celdas) coloreada por región + actividad de los 29 grupos en sus familias homólogas + **andamio derivado de la propia nube** (tractos ópticos, nervios antenales, probóscide, conectivo cervical, eje del VNC) y marcadores de órganos (antenas, probóscide, retinas) |
 | **Comida** | Cubos voxel: fruta roja, azúcar blanca, detrito gris, **cebo amargo verde-oliva** | ídem (fruta/azúcar para ella) |
 | **Silueta** | Ave voxel oscura que se cierne y **crece** (looming 1,2 s) con su sombra proyectada sobre el agar | ídem → dispara el circuito visual→fibra gigante→salto de escape |
 | **Otros** | Anillo ámbar de selección bajo el sujeto, haz de luz al holograma, ondas expansivas de golpe/chorro, huevos | ídem |
@@ -39,16 +42,15 @@ silueta, golpe, chorro de aire).
 | Normalización | `DA1→DA01` (nuestro conectoma usa dos dígitos) |
 | Crédito UI | *«Somas: WormBase Virtual Worm (dominio público), vía OpenWorm c302 (MIT)»* |
 
-### 2.2 Drosophila — nube del CNS adulto + cuerpo voxelar
+### 2.2 Drosophila — dos etapas, dos datasets reales
 
-| Campo | Valor |
-|---|---|
-| Dataset | neuPrint **`male-cns:v1.0`** — CNS adulto masculino completo (Berg et al., *Cell* 189(18), 2026, doi:10.1016/j.cell.2026.08.015) |
-| Contenido | 176.422 neuronas / 6,29 M conexiones / **141.781 somas con posición** (8 nm/voxel) |
-| Vía | binario FLYB (`malecns-v1.0.flyb.gz`) de **github.com/blendi-remade/fly-brain-minecraft** (código MIT, datos **CC BY 4.0**) |
-| Cuerpo | **diseño y paleta propios de NeuroEvo (v1.4.1)**, inspirados en la morfología real de *D. melanogaster*; ya no se usan el modelo ni la paleta del mod |
-| Ejes (verificados sobre la nube) | x = izquierda-derecha (lóbulos ópticos a ambos extremos) · z = eje cerebro→cordón · y = dorso-ventral |
-| Crédito UI | *«Datos CC BY 4.0 · github.com/blendi-remade/fly-brain-minecraft»* |
+| Campo | Etapa **LARVA** (por defecto) | Etapa **ADULTA** |
+|---|---|---|
+| Dataset | Conectoma larvario completo **Winding et al. 2023** (Science 379:eadd9330) — el que el motor simula: 2.956 neuronas / 41.977 aristas | neuPrint **`male-cns:v1.0`** — CNS adulto masculino (Berg et al., *Cell* 2026), 141.781 somas con posición |
+| Anatomía | Layout canónico de la larva (Berck 2016; Eichler 2017; Eschbach 2020/21) — coordenadas por neurona = aproximación declarada (§5.9) | Nube voxel 15.001 celdas vía binario FLYB de **fly-brain-minecraft** (MIT/CC BY 4.0) |
+| Actividad | **100 % real, por neurona** (voltaje LIF de cada una de las 2.956) | 29 grupos larvarios anclados a las familias adultas homólogas (§3) + andamio derivado de la propia nube (§5.11) |
+| Centrado | Layout simétrico (mismo marco que el gusano) | **Recentrado en la línea media real** de la nube: x +3,65 (media de los centroides OL L/R) y z +5,05 (mediana D-V) — el cordón ventral cae en x=0 |
+| Crédito UI | *«Winding 2023 · 2.956 neuronas reales»* | *«Berg 2026 · 141.781 somas (CC BY 4.0)»* |
 
 ### 2.3 Actividad en vivo
 
@@ -196,6 +198,27 @@ los canales olfativos callan y los nociceptivos guían la huida.
          visualización) de sus neuronas reales: anillo = ganglios cefálicos
      (202), ventral = AS/DA/DB/DD/VA/VB/VC/VD en ±45 µm, dorsal = DA/DB/DD
          en ±60 µm.
+9. **Layout larvario por neurona (v1.4.2)**: el dataset Winding no
+   publica somas en µm — cada una de las 2.956 neuronas se coloca de forma
+   **determinista** (jitter sembrado por índice) dentro de la **región
+   canónica real de su grupo** (órgano dorsal, Bolwig, terminal, faríngeo,
+   AL, cálices/pedúnculos/lóbulos del MB, LH, núcleo cerebral, VNC por
+   neuromero, pared del cuerpo por segmento, intestino para GUT). La
+   **actividad es 100 % real por neurona**; la posición, aproximación
+   declarada. Misma escala µm→unidades que el gusano (el CNS larvario es
+   de verdad más corto que el cuerpo del gusano: ~27 vs 46 unidades).
+10. **Sensorial del gusano (v1.4.2)**: los poros anfidiales son la
+   continuación anterior del grupo somático real (medias L/R medidas);
+   los procesos de tacto (ALM/PLM/AVM/PVM) y PVD se dibujan como líneas
+   sublaterales rectas en la pared del cuerpo (±28–30 µm) a la altura
+   D-V de su soma real — el brillo es el voltaje **individual** de cada
+   neurona, sin mezclar.
+11. **Andamio adulto derivado de la nube (v1.4.2)**: tractos ópticos
+   (centroides OL L/R → centroide cb), eje del VNC (bines de 240 puntos
+   sobre los vóxeles 'vnc' reales), conectivo cervical y nervios
+   antenal/probóscide (anclados a los centroides PN/GRN del §3, extendidos
+   hacia los órganos periféricos). Marcadores de antenas/probóscide/
+   retinas iluminados con la actividad real de ORN/GRN/PR.
 
 ---
 
@@ -276,6 +299,30 @@ brillo blanquecino separado del lenguaje de color de la actividad; las
 líneas de 1 px se pierden en la nube de somas → torus 3D; la media de un
 grupo grande (202 neuronas) casi nunca pasa de 0,3 → gamma √t.
 
+### 6.3 E2E navegador (v1.4.2 — dos etapas + sensorial)
+
+Verificado con agente navegador + modelo de visión:
+
+- **Arranque sin sujeto**: `any_hologram_or_floating_cloud: false` —
+  **el cerebro de la mosca ya NO aparece al inicio** (fix del bug: el
+  conmutador de holograma solo monta el del sujeto seleccionado).
+- **Larva (por defecto)**: holograma presente, horizontal con cabeza a la
+  izquierda, nube densa de puntos (2.956 neuronas), cordón segmentado
+  visible (11 neuromeros), grupos de órganos sensoriales a la izquierda,
+  título leído **«D. melanogaster · larva»**, `activity_glow: many`.
+- **Adulta** (selector del panel): erguida con el cerebro arriba, nube por
+  regiones, cordón colgando, líneas de andamio visibles, etiquetas con
+  guía legibles (ORN/PR/MBON/KC/CN/ASC), **centrada sobre el plato**
+  (recentrado verificado), título **«D. melanogaster · adulto ♂»**.
+- **Gusano sensorial**: poros de **anfídios** en la cabeza y **fasmas** en
+  la cola confirmados por visión, líneas sublaterales de **tacto** en las
+  dos paredes del cuerpo, etiquetas leídas (Anfídios, Fasmas, Tacto,
+  Nocicepción) y título «C. elegans · hermafrodita».
+- **Interacción**: azúcar junto a la mosca → `head_end_glow: strong` con
+  muchos puntos encendidos (respuesta sensorial ORN/GRN real en vivo).
+- **Móvil 375×812**: sin overflow horizontal, holograma visible.
+- Consola del navegador y `dev.log` limpios (solo el ruido §7).
+
 ## 7. Nota ambiental: consola en desarrollo
 
 Desde Chromium 155 (build actual de agent-browser) aparecen ~20 errores
@@ -292,15 +339,19 @@ Pendiente de actualizar Radix/react-dom en cuanto salga el parche upstream.
 
 ```
 src/components/sim/neuro3d/
-├── store.ts        # zustand: herramienta activa + preferencias
-├── data.ts         # datasets 3D + andamio anatómico (anillo/cordones derivados de somas reales)
+├── store.ts        # zustand: herramienta activa + etiquetas + etapa de la mosca
+├── data.ts         # datasets 3D + andamios (anillo/cordones, sensorial del gusano,
+│                   #   adulto derivado de la nube) + recentrado de la línea media
 ├── vox.tsx         # helpers voxel (paleta PROPIA de la mosca, rampa de actividad)
 ├── labels.tsx      # etiquetas-sprite canvas (sin portales DOM)
 ├── fly-body.tsx    # mosca voxelar (diseño propio de NeuroEvo, D. melanogaster real)
 ├── worm-body.tsx   # gusano: cápsulas + 302 neuronas reales dentro
-├── brain-hologram.tsx # hologramas: gusano (2 capas+anillo+cordones) / mosca (nube+anclajes)
+├── larva.ts        # LAYOUT LARVARIO (v1.4.2): 2.956 posiciones por neurona,
+│                   #   nervios sensoriales, VNC de 11 neuromeros, órganos
+├── brain-hologram.tsx # hologramas: gusano (2 capas+anillo+cordones+sensorial) /
+│                   #   larva (2.956 neuronas+andamio) / adulto (nube+anclajes+andamio)
 ├── scene.tsx       # Canvas: terrario, comida, silueta, ondas, clic, cámara
-├── panel.tsx       # controles: sujeto, colocar, aprendizaje, leyenda…
+├── panel.tsx       # controles: sujeto, colocar, aprendizaje, etapa Larva/Adulta…
 └── index.tsx       # carga diferida (ssr:false)
 ```
 

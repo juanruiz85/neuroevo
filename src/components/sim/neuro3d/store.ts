@@ -58,17 +58,30 @@ export const TOOL_INFO: Record<
   },
 }
 
+/**
+ * Etapa del cerebro de la mosca mostrada en el holograma. El motor simula el
+ * conectoma LARVARIO real (Winding 2023, 2.956 neuronas); la anatomía adulta
+ * (Berg 2026, 141.781 somas) es un segundo dataset real. Ambas etapas son
+ * datos reales de D. melanogaster.
+ */
+export type FlyStage = 'larva' | 'adult'
+
 interface Neuro3DState {
   tool: Tool3D
   /** Mostrar etiquetas de los grupos/anclas en el holograma. */
   labels: boolean
+  /** Etapa del holograma de la mosca (larva / adulta). */
+  flyStage: FlyStage
   setTool: (t: Tool3D) => void
   setLabels: (v: boolean) => void
+  setFlyStage: (s: FlyStage) => void
 }
 
 export const useNeuro3D = create<Neuro3DState>((set) => ({
   tool: 'none',
   labels: true,
+  flyStage: 'larva',
   setTool: (tool) => set({ tool }),
   setLabels: (labels) => set({ labels }),
+  setFlyStage: (flyStage) => set({ flyStage }),
 }))

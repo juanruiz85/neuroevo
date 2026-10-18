@@ -27,8 +27,9 @@ import type { SimApi } from '@/components/sim/use-simulation'
 import type { Species } from '@/lib/sim/types'
 import { SPECIES_CONFIG } from '@/lib/sim/types'
 import { cn } from '@/lib/utils'
-import { TOOL_INFO, useNeuro3D, type Tool3D } from './store'
+import { TOOL_INFO, useNeuro3D, type Tool3D, type FlyStage } from './store'
 import { FLY_3D, FLY_LABEL_GROUPS } from './data'
+import { LARVA_GROUP_TINT } from './larva'
 import { elegansLabGenome } from '@/lib/sim/connectome/elegans'
 import { drosophilaForagerGenome } from '@/lib/sim/connectome/drosophila'
 
@@ -42,15 +43,32 @@ const TOOLS: { key: Tool3D; label: string; icon: string; tone: string }[] = [
   { key: 'airPuff', label: 'Chorro 💨', icon: '', tone: 'data-[on=true]:bg-cyan-800' },
 ]
 
+/** Leyenda de grupos del holograma LARVARIO (colores del tinte real). */
+const LARVA_LEGEND: { groups: string[]; color: string; label: string; n: number }[] = [
+  { groups: ['ORN'], color: LARVA_GROUP_TINT.ORN, label: 'ORN · olfato (órgano dorsal)', n: 42 },
+  { groups: ['GRN'], color: LARVA_GROUP_TINT.GRN, label: 'GRN · gusto (órgano terminal)', n: 132 },
+  { groups: ['GNP'], color: LARVA_GROUP_TINT.GNP, label: 'GNP · gusto faríngeo', n: 110 },
+  { groups: ['PR'], color: LARVA_GROUP_TINT.PR, label: 'PR · luz (órgano de Bolwig)', n: 29 },
+  { groups: ['KC'], color: LARVA_GROUP_TINT.KC, label: 'KC · memoria (cuerpo fungiforme)', n: 144 },
+  { groups: ['MBON'], color: LARVA_GROUP_TINT.MBON, label: 'MBON/MBIN · salida y refuerzo del MB', n: 238 },
+  { groups: ['LHN'], color: LARVA_GROUP_TINT.LHN, label: 'LHN · innato (cuerno lateral)', n: 202 },
+  { groups: ['PN'], color: LARVA_GROUP_TINT.PN, label: 'PN/mPN/LN · lóbulo antenal', n: 468 },
+  { groups: ['DNV'], color: LARVA_GROUP_TINT.DNV, label: 'Descendentes · cerebro→VNC', n: 924 },
+  { groups: ['ASC'], color: LARVA_GROUP_TINT.ASC, label: 'ASC · ascendentes (VNC)', n: 18 },
+  { groups: ['GUT'], color: LARVA_GROUP_TINT.GUT, label: 'GUT · sistema nervioso entérico', n: 85 },
+  { groups: ['MEC'], color: LARVA_GROUP_TINT.MEC, label: 'MEC/NOC/PRO · pared del cuerpo', n: 28 },
+]
+
 export function Neuro3DControls({ sim }: { sim: SimApi }) {
   const tool = useNeuro3D((s) => s.tool)
   const setTool = useNeuro3D((s) => s.setTool)
   const labels = useNeuro3D((s) => s.labels)
   const setLabels = useNeuro3D((s) => s.setLabels)
+  const flyStage = useNeuro3D((s) => s.flyStage)
+  const setFlyStage = useNeuro3D((s) => s.setFlyStage)
   const [provenance, setProvenance] = useState(false)
   const sel = sim.ui.selected
   const cfg = sel ? SPECIES_CONFIG[sel.species] : null
-
   const drop = (species: Species) => {
     // Genomas de línea de laboratorio: gusano N2 y mosca forrajera (drive
     // tónico de locomoción — camina y explora el terrario).
@@ -83,7 +101,7 @@ export function Neuro3DControls({ sim }: { sim: SimApi }) {
                 <span className="font-semibold">
                   {sel.species === 'worm' ? 'Gusano' : 'Mosca'}{' '}
                   <span className="font-normal text-muted-foreground">
-                    · {sel.brainKind === 'elegans' ? 'conectoma C. elegans (300)' : sel.brainKind === 'drosophila' ? 'conectoma Drosophila (2.956)' : 'ANN de control'}
+                    · {sel.brainKind === 'elegans' ? 'conectoma C. elegans (300)' : sel.brainKind === 'drosophila' ? 'conectoma Drosophila LARVA (2.956)' : 'ANN de control'}
                   </span>
                 </span>
                 {sel.species === 'worm' && sel.stage && (
@@ -210,30 +228,101 @@ export function Neuro3DControls({ sim }: { sim: SimApi }) {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-xs">
+          {/* Etapa del cerebro de la mosca: dos datasets reales de D. melanogaster */}
+          {sel?.species === 'fly' && (
+            <div className="space-y-1.5">
+              <p className="text-muted-foreground">Etapa del cerebro (2 datasets reales):</p>
+              <div className="grid grid-cols-2 gap-1.5">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-on={flyStage === 'larva'}
+                  className={cn(
+                    'h-11 flex-col items-start justify-center px-2 text-left text-[11px] leading-tight',
+                    flyStage === 'larva' && 'border-primary bg-amber-950/60',
+                  )}
+                  onClick={() => setFlyStage('larva')}
+                >
+                  <span className="font-semibold">🐛 Drosophila Larva</span>
+                  <span className="text-muted-foreground">2.956 neuronas (Winding 2023)</span>
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-on={flyStage === 'adult'}
+                  className={cn(
+                    'h-11 flex-col items-start justify-center px-2 text-left text-[11px] leading-tight',
+                    flyStage === 'adult' && 'border-primary bg-amber-950/60',
+                  )}
+                  onClick={() => setFlyStage('adult')}
+                >
+                  <span className="font-semibold">🪰 Drosophila Adulta</span>
+                  <span className="text-muted-foreground">141.781 somas (Berg 2026)</span>
+                </Button>
+              </div>
+            </div>
+          )}
           {sel?.species === 'worm' ? (
             <p className="leading-snug text-muted-foreground">
               El <b>sistema nervioso completo</b> en disposición anatómica real
               (WormBase Virtual Worm): los <b>302 somas</b> tenues por clase y,
               encima, los <b>puntos que se activan</b> brillando con cada
-              voltaje LIF — igual que el cerebro de la mosca. El andamio es la
-              neuroanatomía canónica: <b>anillo nervioso</b> + <b>cordón
-              ventral</b> (trazado por los somas motores reales) + <b>cordón
-              dorsal</b>; cada tracto se ilumina con la actividad real de las
-              neuronas que lo forman. Cabeza a la izquierda.
+              voltaje LIF. Andamio central: <b>anillo nervioso</b> + <b>cordón
+              ventral</b> (por los somas motores reales) + <b>cordón dorsal</b>.
+              Andamio <b>sensorial</b>: <b>anfídios</b> y <b>fasmas</b> (poros +
+              tractos), los 6 receptores de <b>tacto</b> (ALM/PLM/AVM/PVM) y
+              <b> PVD</b> (nocicepción) — cada tracto brilla con la actividad
+              real de sus neuronas. Cabeza a la izquierda.
             </p>
-          ) : (
+          ) : sel?.species === 'fly' && flyStage === 'larva' ? (
+            <p className="leading-snug text-muted-foreground">
+              El <b>cerebro larvario REAL</b> que simula el motor (Winding
+              2023): <b>2.956 puntos, uno por neurona</b>, cada uno brillando
+              con su voltaje LIF propio — igual que el gusano. Andamio
+              canónico: <b>lóbulos antenales</b>, <b>cuerpos fungiformes</b>{' '}
+              (cálices → pedúnculos → lóbulos), <b>cuernos laterales</b>,{' '}
+              <b>SEZ</b>, nervios sensoriales (<b>órgano dorsal</b>,{' '}
+              <b>Bolwig</b>, terminal, faríngeo), <b>conectivo cervical</b> y{' '}
+              <b>cordón ventral</b> de 11 neuromeros (T1–T3, A1–A8) con nervios
+              segmentarios. Cabeza a la izquierda.
+            </p>
+          ) : sel?.species === 'fly' ? (
             <p className="leading-snug text-muted-foreground">
               El <b>CNS adulto masculino</b> completo (141.781 somas reales,
               Berg 2026) como nube de vóxeles por región; sobre él, la
               actividad de los <b>29 grupos larvarios</b> que simula el motor
               (Winding 2023) proyectada en sus familias adultas homólogas.
+              Andamio derivado de la propia nube: <b>tractos ópticos</b>,{' '}
+              <b>nervios antenales</b>, <b>probóscide</b>, <b>conectivo
+              cervical</b> y <b>eje del cordón ventral</b>.
+            </p>
+          ) : (
+            <p className="leading-snug text-muted-foreground">
+              Suelta un organismo (o sigue a uno del ecosistema) y su cerebro
+              se dibujará aquí en 3D: el gusano con sus 302 neuronas reales, la
+              mosca con su conectoma larvario real y su anatomía adulta.
             </p>
           )}
           <div className="flex items-center justify-between">
             <span className="text-muted-foreground">Etiquetas de grupos</span>
             <Switch checked={labels} onCheckedChange={setLabels} aria-label="Etiquetas del holograma" />
           </div>
-          {sel?.species !== 'worm' && (
+          {sel?.species === 'fly' && flyStage === 'larva' && (
+            <div className="nice-scroll max-h-40 space-y-1 overflow-y-auto rounded-md border p-2">
+              {LARVA_LEGEND.map((c) => (
+                <div key={c.label} className="flex items-center gap-2">
+                  <span
+                    className="inline-block size-2.5 rounded-[2px]"
+                    style={{ backgroundColor: c.color }}
+                    aria-hidden
+                  />
+                  <span className="flex-1 text-[11px] text-muted-foreground">{c.label}</span>
+                  <span className="font-mono text-[10px] text-muted-foreground">{c.n}</span>
+                </div>
+              ))}
+            </div>
+          )}
+          {sel?.species === 'fly' && flyStage === 'adult' && (
             <div className="nice-scroll max-h-28 space-y-1 overflow-y-auto rounded-md border p-2">
               {FLY_3D.classes.filter((c) => c.n > 0).map((c) => (
                 <div key={c.key} className="flex items-center gap-2">
@@ -250,7 +339,7 @@ export function Neuro3DControls({ sim }: { sim: SimApi }) {
               ))}
             </div>
           )}
-          {sel?.species !== 'worm' && (
+          {sel?.species === 'fly' && flyStage === 'adult' && (
             <p className="text-[10px] leading-snug text-muted-foreground">
               Grupos etiquetados: {FLY_LABEL_GROUPS.join(' · ')} — pasa el
               tiempo cerca de comida o de la silueta y mira qué familias se
@@ -294,31 +383,38 @@ export function Neuro3DControls({ sim }: { sim: SimApi }) {
               <b className="text-foreground">Gusano (anatomía):</b> 302 somas
               reales en µm — WormBase Virtual Worm (C. Grove &amp; P.
               Sternberg, Caltech, dominio público) vía OpenWorm c302 (MIT).
+              Sistema sensorial según WormAtlas (anfídios/fasmas/tacto/PVD).
             </p>
             <Separator />
             <p>
-              <b className="text-foreground">Mosca (anatomía):</b> CNS adulto
-              masculino neuPrint <i>male-cns:v1.0</i> (Berg et al., Cell
-              2026), datos CC BY 4.0, extraído del binario FLYB de
-              github.com/blendi-remade/fly-brain-minecraft (MIT). El cuerpo
-              voxelar es un <b className="text-foreground">diseño propio</b>{' '}
-              de NeuroEvo (proporciones y paleta originales inspiradas en la
-              morfología real de <i>D. melanogaster</i>).
+              <b className="text-foreground">Mosca — etapa LARVA:</b> el
+              conectoma larvario completo que simula el motor (Winding et al.
+              2023, Science: 2.956 neuronas/41.977 aristas) dibujado{' '}
+              <b className="text-foreground">neurona a neurona</b> sobre un
+              layout canónico de su neuroanatomía larvaria (Berck 2016;
+              Eichler 2017; Eschbach 2020/21): la posición por neurona es una
+              aproximación declarada, la actividad es 100 % real (LIF por
+              neurona).
+            </p>
+            <Separator />
+            <p>
+              <b className="text-foreground">Mosca — etapa ADULTA:</b> CNS
+              adulto masculino neuPrint <i>male-cns:v1.0</i> (Berg et al., Cell
+              2026, CC BY 4.0), 141.781 somas reales, extraído del binario
+              FLYB de github.com/blendi-remade/fly-brain-minecraft (MIT). El
+              andamio adulto (tractos ópticos, nervios antenales, probóscide,
+              conectivo, eje del VNC) se deriva de los centroides/bines de la
+              propia nube. El cuerpo voxelar es un{' '}
+              <b className="text-foreground">diseño propio</b> de NeuroEvo.
             </p>
             <Separator />
             <p>
               <b className="text-foreground">Actividad en vivo:</b> conectomas
               reales que simula el motor — C. elegans (OpenWorm, 300
               neuronas/4.731 sinapsis, LIF) y cerebro larvario de Drosophila
-              (Winding et al. 2023, 2.956 neuronas/41.977 aristas).
-            </p>
-            <Separator />
-            <p>
-              <b className="text-foreground">Simplificación declarada:</b> en
-              la mosca, la anatomía es del adulto y la actividad del larvario:
-              los 29 grupos se anclan a los centroides de sus familias adultas
-              homólogas (p.ej. ORN→lóbulo antenal, KC→cuerpo fungiforme) para
-              proyectar la dinámica real sobre la forma real.
+              (Winding 2023). En la vista adulta, la actividad larvaria se
+              ancla a los centroides de las familias adultas homólogas
+              (simplificación declarada).
             </p>
           </CardContent>
         )}

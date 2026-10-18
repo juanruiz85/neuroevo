@@ -13,7 +13,7 @@ import type { World } from '@/lib/sim/world'
 import type { SimApi } from '@/components/sim/use-simulation'
 import { FlyBody } from './fly-body'
 import { WormBody } from './worm-body'
-import { FlyHologram, WormHologram } from './brain-hologram'
+import { FlyHologram, FlyLarvaHologram, WormHologram } from './brain-hologram'
 import { FLY_PALETTE } from './vox'
 import { PX2U, WORLD_H, WORLD_W, sceneToWorld, worldToScene } from './data'
 import { useNeuro3D, type Tool3D } from './store'
@@ -428,7 +428,7 @@ function SceneContent({ sim }: { sim: SimApi }) {
   const getWorld = sim.getWorld
   const getSubject = () => getWorld()?.getSelected() ?? null
   const subject = getWorld()?.getSelected() ?? null
-  const isWorm = subject?.species === 'worm'
+  const flyStage = useNeuro3D((s) => s.flyStage)
 
   return (
     <>
@@ -458,17 +458,26 @@ function SceneContent({ sim }: { sim: SimApi }) {
       <StimRipples getWorld={getWorld} />
       <Beam getWorld={getWorld} />
 
-      {/* Holograma flotando sobre el plato, desplazado al fondo.
-          El del gusano se inclina ~34° (rotation.y) para que el anillo
-          nervioso —⊥ al eje A-P— se vea en escorzo y no de canto. */}
+      {/* Holograma flotando sobre el plato, desplazado al fondo. SOLO se
+          dibuja el cerebro del sujeto seleccionado (fix: antes la nube de la
+          mosca aparecía al arrancar sin ningún sujeto). El del gusano y el de
+          la larva se inclinan (rotation.y) para que sus estructuras
+          transversales (anillo nervioso / lóbulos del cuerpo fungiforme) se
+          lean en escorzo y no de canto. */}
       <group position={[0, 34, 14]} scale={1.12}>
-        {isWorm ? (
+        {subject?.species === 'worm' ? (
           <group rotation={[0, 0.6, 0]}>
             <WormHologram getSubject={getSubject} />
           </group>
-        ) : (
-          <FlyHologram getSubject={getSubject} />
-        )}
+        ) : subject?.species === 'fly' ? (
+          flyStage === 'larva' ? (
+            <group rotation={[0, 0.55, 0]}>
+              <FlyLarvaHologram getSubject={getSubject} />
+            </group>
+          ) : (
+            <FlyHologram getSubject={getSubject} />
+          )
+        ) : null}
       </group>
 
       <OrbitControls
